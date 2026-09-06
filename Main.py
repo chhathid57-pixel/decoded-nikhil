@@ -9,14 +9,7 @@ async def handle(request):
 app = web.Application()
 app.router.add_get("/", handle)
 
-async def start_server():
-    runner = web.AppRunner(app)
-    await runner.setup()
-    port = int(os.environ.get("PORT", 8080))
-    site = web.TCPSite(runner, "0.0.0.0", port)
-await site.start()
 
-asyncio.get_event_loop().create_task(start_server())
 
 import asyncio
 import sqlite3
@@ -2420,8 +2413,15 @@ async def main() -> None:
     migrate_categories()
     asyncio.create_task(auto_verify_task())
     logger.info("FamPay Auto-Verifier Daemon Running in Background.")
-    logger.info("🚀 CORE SYSTEM IS FULLY OPERATIONAL...")
+    logger.info("🚀 CORE SYSTEM IS FULLY OPERATIONAL...") 
+    runner = web.AppRunner(app)
+await runner.setup()
+port = int(os.environ.get("PORT", 8080))
+site = web.TCPSite(runner, "0.0.0.0", port)
+await site.start()
+
     try:
+    
         await dp.start_polling(bot)
     except Exception as err:
         logger.error(f"Critical System Failure in Polling: {err}")
