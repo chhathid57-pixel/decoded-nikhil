@@ -2086,7 +2086,8 @@ async def toggle_bot(call: CallbackQuery):
     try:
     await call.message.edit_reply_markup(reply_markup=admin_kb)
     except Exception:
-    pass
+        pass
+
 
 
 
