@@ -2085,7 +2085,7 @@ async def toggle_bot(call: CallbackQuery):
     db_query("INSERT OR REPLACE INTO settings (key, value) VALUES ('bot_status', ?)", (new_status,))
     try:
     await call.message.edit_reply_markup(reply_markup=admin_kb)
-except Exception:
+    except Exception:
     pass
 
 
