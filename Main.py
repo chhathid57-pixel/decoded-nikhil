@@ -2419,7 +2419,6 @@ await runner.setup()
 port = int(os.environ.get("PORT", 8080))
 site = web.TCPSite(runner, "0.0.0.0", port)
 await site.start()
-
     try:
     
         await dp.start_polling(bot)
