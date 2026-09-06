@@ -36,8 +36,9 @@ from aiogram.types import (
 # ==============================================================================
 # 1. BOT CONFIGURATION & CONSTANTS
 # ==============================================================================
-BOT_TOKEN = "7775351709:AAEMfs2YkpIhZLg2eiZIdHS36dGDg1ykExw"
-BOT_USERNAME = "@PANEL_SHOP_DECODED_BOT"
+BOT_TOKEN = "8746251637:AAE7VIJOtfQjG3CPAbSMkLJaHVUUgSpD6Io"
+
+BOT_USERNAME = "@dxcoded_shop_bot"
 ADMIN_ID = 6452869652
 ADMIN_CONTACT = "@Dery8990"
 
