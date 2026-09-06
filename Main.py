@@ -2083,7 +2083,11 @@ async def toggle_bot(call: CallbackQuery):
     current = res[0] if res else 'ON'
     new_status = 'OFF' if current == 'ON' else 'ON'
     db_query("INSERT OR REPLACE INTO settings (key, value) VALUES ('bot_status', ?)", (new_status,))
-    await call.message.edit_reply_markup(reply_markup=admin_kb())
+        try:
+        await call.message.edit_reply_markup(reply_markup=admin_kb)
+    except Exception:
+        pass
+
 
 
 @dp.callback_query(F.data == "admin_set_video")
