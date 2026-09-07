@@ -447,8 +447,8 @@ def init_db() -> None:
         ('fampay_base_url', 'https://fampay.anujbots.xyz/'),
 
 
-        ('fampay_gmail', ''),
-        ('fampay_upi', ''),
+        ('fampay_gmail', 'Shankarmahato3239@gmail.com'),
+('fampay_upi', '9821603864@fam'),
         ('vip_status', 'OFF'),
         ('reseller_setup_fee', '200.0'),
         ('reseller_min_balance', '500.0'),
