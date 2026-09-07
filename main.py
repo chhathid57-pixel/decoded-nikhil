@@ -44,25 +44,6 @@ ADMIN_CONTACT = "@Dery8990"
 
 EXTERNAL_API_URL = os.getenv("API_URL", "https://api.example.com/v1")
 UPI_ID = os.getenv("UPI_ID", "yourname@upi")
-# --- ऑटोमैटिक की-जनरेशन और एपीआई हैंडलर ---
-async def generate_and_send_key(message, product_id):
-    # अपनी सप्लायर एपीआई का एंडपॉइंट यहाँ डालें
-    endpoint = "generate-key" 
-    payload = {"product_id": product_id, "user_id": message.from_user.id}
-    
-    # आपके पहले से मौजूद 'call_external_api' फंक्शन का उपयोग करके रिक्वेस्ट भेजें
-    response = await call_external_api(endpoint=endpoint, payload=payload, method="POST")
-    
-    if response and response.get("status") != "error":
-        # अगर एपीआई से की मिल जाती है
-        license_key = response.get("key") or response.get("license_key")
-        await message.answer(
-            f"✅ **भुगतान सफल रहा!**\n\nआपकी ऑटो-जनरेटेड की:\n`{license_key}`",
-            parse_mode="Markdown"
-        )
-    else:
-        # अगर एपीआई से की नहीं मिलती या एरर आता है
-        await message.answer("⚠️ भुगतान सफल हो गया है, लेकिन ऑटो-की जनरेट करने में एरर आया है। कृपया एडमिन से संपर्क करें।")
 
 
 async def call_external_api(endpoint: str, payload: dict = None, method: str = "GET", headers: dict = None):
@@ -81,6 +62,21 @@ async def call_external_api(endpoint: str, payload: dict = None, method: str = "
                     return {"status": "error", "code": response.status}
         except Exception as e:
             return {"status": "error", "message": str(e)}
+# --- ऑटोमैटिक की-जनरेशन और एपीआई हैंडलर ---
+async def generate_and_send_key(message, product_id):
+    endpoint = "generate-key" 
+    payload = {"product_id": product_id, "user_id": message.from_user.id}
+    
+    response = await call_external_api(endpoint=endpoint, payload=payload, method="POST")
+    
+    if response and response.get("status") != "error":
+        license_key = response.get("key") or response.get("license_key")
+        await message.answer(
+            f"✅ **भुगतान सफल रहा!**\n\nआपकी ऑटो-जनरेटेड की:\n`{license_key}`",
+            parse_mode="Markdown"
+        )
+    else:
+        await message.answer("⚠️ भुगतान सफल हो गया है, लेकिन ऑटो-की जनरेट करने में एरर आया है। कृपया एडमिन से संपर्क करें।")
 
 
 USDT_TO_INR = 90.0
