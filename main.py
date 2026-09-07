@@ -2487,7 +2487,325 @@ async def main() -> None:
     port = int(os.environ.get("PORT", 8080))
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
+   @dp.message(AdminStates.wait_for_add_money)
+async def exec_add_money(m: Message, state: FSMContext):
+    try:
+        amt = float(m.text)
+        data = await state.get_data()
+        u_id = data.get("target_u_id")
+        db_query("UPDATE users SET balance = balance + ? WHERE user_id=?", (amt, u_id))
+        await m.answer(f"✅ Successfully added {fmt_curr(amt)} to user <code>{u_id}</code>.", reply_markup=admin_back_kb(), parse_mode='HTML')
+        try: await bot.send_message(u_id, f"🎉 <b>Admin added {fmt_curr(amt)} to your wallet!</b>", parse_mode='HTML')
+        except: pass
+        log_activity(m.from_user.id, "ADMIN_ADD_MONEY", f"Target: {u_id}, Amount: {amt}")
+        await state.clear()
+    except ValueError:
+        await m.answer("❌ Invalid number. Please enter a valid numerical amount.")
 
+@dp.message(AdminStates.wait_for_minus_money)
+async def exec_minus_money(m: Message, state: FSMContext):
+    try:
+        amt = float(m.text)
+        data = await state.get_data()
+        u_id = data.get("target_u_id")
+        db_query("UPDATE users SET balance = MAX(0, balance - ?) WHERE user_id=?", (amt, u_id))
+        await m.answer(f"✅ Successfully deducted {fmt_curr(amt)} from user <code>{u_id}</code>.", reply_markup=admin_back_kb(), parse_mode='HTML')
+        log_activity(m.from_user.id, "ADMIN_MINUS_MONEY", f"Target: {u_id}, Amount: {amt}")
+        await state.clear()
+    except ValueError:
+        await m.answer("❌ Invalid number. Please enter a valid numerical amount.")
+
+@dp.message(AdminStates.wait_for_warning)
+async def exec_warning(m: Message, state: FSMContext):
+    data = await state.get_data()
+    u_id = data.get("target_u_id")
+    warn_text = m.text
+    db_query("UPDATE users SET warnings = warnings + 1 WHERE user_id=?", (u_id,))
+    try:
+        await bot.send_message(u_id, f"⚠️ <b>WARNING FROM ADMIN:</b>\n\n{warn_text}", parse_mode='HTML')
+        await m.answer(f"✅ Warning successfully sent to user <code>{u_id}</code>.", reply_markup=admin_back_kb(), parse_mode='HTML')
+    except Exception as e:
+        await m.answer(f"⚠️ Warning saved to DB, but failed to message user: {e}", reply_markup=admin_back_kb())
+    log_activity(m.from_user.id, "ADMIN_WARN_USER", f"Target: {u_id}, Msg: {warn_text}")
+    await state.clear()
+
+@dp.callback_query(F.data == "admin_view_stats")
+async def admin_stats(call: CallbackQuery):
+    if call.from_user.id != ADMIN_ID: return
+    users_count = db_query("SELECT COUNT(*) FROM users", fetchone=True)[0]
+    orders_count = db_query("SELECT COUNT(*) FROM orders", fetchone=True)[0]
+    total_rev = db_query("SELECT SUM(price_paid) FROM orders", fetchone=True)[0] or 0.0
+    tickets_count = db_query("SELECT COUNT(*) FROM tickets WHERE status='Open'", fetchone=True)[0]
+    text = (
+        f"📊 <b><u>BOT GLOBAL STATISTICS</u></b> 📊\n\n"
+        f"👥 <b>Total Users:</b> {users_count}\n"
+        f"📦 <b>Total Orders Processed:</b> {orders_count}\n"
+        f"💰 <b>Total Revenue:</b> {fmt_curr(total_rev)}\n"
+        f"🎫 <b>Open Support Tickets:</b> {tickets_count}\n"
+    )
+    kb = admin_back_kb()
+    await call.message.edit_text(text, reply_markup=kb, parse_mode='HTML')
+
+@dp.callback_query(F.data == "admin_add_prod")
+async def admin_add_prod_start(call: CallbackQuery, state: FSMContext):
+    if call.from_user.id != ADMIN_ID: return
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📱 ANDROID NON ROOT", callback_data="prodcat_ANDROID NON ROOT PANEL")],
+        [InlineKeyboardButton(text="⚡ ANDROID ROOT", callback_data="prodcat_ANDROID ROOT PANEL")],
+        [InlineKeyboardButton(text="💻 PC PANEL", callback_data="prodcat_PC PANEL")],
+        [InlineKeyboardButton(text="Cancel", callback_data="admin_panel_back", icon_custom_emoji_id=get_emoji_icon("back"), style="danger")]
+    ])
+    await call.message.edit_text("📦 <b>Add Product Step 1:</b> Select Category:", reply_markup=kb, parse_mode='HTML')
+    await state.set_state(AdminStates.add_prod_category)
+
+@dp.callback_query(F.data.startswith("prodcat_"), AdminStates.add_prod_category)
+async def admin_add_prod_cat(call: CallbackQuery, state: FSMContext):
+    cat = call.data.split("prodcat_", 1)[1]
+    await state.update_data(cat=cat)
+    await call.message.edit_text("📦 <b>Add Product Step 2:</b> Enter Panel Name (e.g., <i>FF HACK, BGMI VIP</i>):", reply_markup=admin_back_kb(), parse_mode='HTML')
+    await state.set_state(AdminStates.add_prod_panel_name)
+
+@dp.message(AdminStates.add_prod_panel_name)
+async def admin_add_prod_panel_name(m: Message, state: FSMContext):
+    await state.update_data(panel_name=m.text.strip())
+    await m.answer("📦 <b>Add Product Step 3:</b> Enter Package Name / Validity (e.g., <i>1 Day, 7 Days, 30 Days</i>):", reply_markup=admin_back_kb(), parse_mode='HTML')
+    await state.set_state(AdminStates.add_prod_name)
+
+@dp.message(AdminStates.add_prod_name)
+async def admin_add_prod_name(m: Message, state: FSMContext):
+    await state.update_data(name=m.text.strip())
+    await m.answer("📦 <b>Add Product Step 4:</b> Enter Device Limit (e.g., <i>1 Device, 2 Devices</i>):", reply_markup=admin_back_kb(), parse_mode='HTML')
+    await state.set_state(AdminStates.add_prod_device_limit)
+
+@dp.message(AdminStates.add_prod_device_limit)
+async def admin_add_prod_device(m: Message, state: FSMContext):
+    await state.update_data(device_limit=m.text.strip())
+    await m.answer("📦 <b>Add Product Step 5:</b> Enter Regular Price in INR (e.g., <i>150.0</i>):", reply_markup=admin_back_kb(), parse_mode='HTML')
+    await state.set_state(AdminStates.add_prod_price)
+
+@dp.message(AdminStates.add_prod_price)
+async def admin_add_prod_price(m: Message, state: FSMContext):
+    try:
+        price = float(m.text)
+        await state.update_data(price=price)
+        await m.answer("📦 <b>Add Product Step 6:</b> Enter Reseller Price in INR (e.g., <i>120.0</i>):", reply_markup=admin_back_kb(), parse_mode='HTML')
+        await state.set_state(AdminStates.add_prod_reseller_price)
+    except ValueError:
+        await m.answer("❌ Please enter a valid number for price.")
+
+@dp.message(AdminStates.add_prod_reseller_price)
+async def admin_add_prod_reseller_price(m: Message, state: FSMContext):
+    try:
+        reseller_price = float(m.text)
+        await state.update_data(reseller_price=reseller_price)
+        await m.answer("📦 <b>Add Product Step 7:</b> Enter APK Download Link (or type <i>None</i>):", reply_markup=admin_back_kb(), parse_mode='HTML')
+        await state.set_state(AdminStates.add_prod_apk)
+    except ValueError:
+        await m.answer("❌ Please enter a valid number for reseller price.")
+
+@dp.message(AdminStates.add_prod_apk)
+async def admin_add_prod_apk(m: Message, state: FSMContext):
+    apk = m.text.strip()
+    if apk.lower() == 'none': apk = ""
+    await state.update_data(apk=apk)
+    await m.answer("🔑 <b>Add Product Step 8:</b> Send license keys (one key per line):", reply_markup=admin_back_kb(), parse_mode='HTML')
+    await state.set_state(AdminStates.add_prod_keys)
+
+@dp.message(AdminStates.add_prod_keys)
+async def admin_add_prod_keys_finish(m: Message, state: FSMContext):
+    data = await state.get_data()
+    keys = [k.strip() for k in m.text.split("\n") if k.strip()]
+    stock = len(keys)
+    
+    db_query(
+        "INSERT INTO products (category, panel_name, name, price_inr, reseller_price, stock, apk_link, device_limit, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)",
+        (data['cat'], data['panel_name'], data['name'], data['price'], data['reseller_price'], stock, data['apk'], data['device_limit'])
+    )
+    prod_id = db_query("SELECT last_insert_rowid()", fetchone=True)[0]
+    
+    for key in keys:
+        db_query("INSERT INTO product_keys (product_id, key_text, is_used) VALUES (?, ?, 0)", (prod_id, key))
+        
+    await m.answer(f"🎉 <b>Product Created Successfully!</b>\nAdded {stock} keys to vault.", reply_markup=admin_kb(), parse_mode='HTML')
+    await state.clear()
+
+@dp.callback_query(F.data == "admin_manage_prods")
+async def admin_manage_prods(call: CallbackQuery):
+    if call.from_user.id != ADMIN_ID: return
+    prods = db_query("SELECT id, category, panel_name, name, price_inr, stock FROM products WHERE is_active=1", fetchall=True)
+    if not prods: return await call.message.edit_text("❌ No active products found.", reply_markup=admin_back_kb(), parse_mode='HTML')
+    kb = InlineKeyboardMarkup(inline_keyboard=[])
+    for p in prods:
+        kb.inline_keyboard.append([InlineKeyboardButton(text=f"[{p[1]}] {p[2]} - {p[3]} (Stock: {p[5]})", callback_data=f"editprod_{p[0]}")])
+    kb.inline_keyboard.append([InlineKeyboardButton(text="Back", callback_data="admin_panel_back", icon_custom_emoji_id=get_emoji_icon("back"), style="danger")])
+    await call.message.edit_text("📦 <b>Select a product to manage or delete:</b>", reply_markup=kb, parse_mode='HTML')
+
+@dp.callback_query(F.data.startswith("editprod_"))
+async def edit_product_menu(call: CallbackQuery, state: FSMContext):
+    if call.from_user.id != ADMIN_ID: return
+    prod_id = int(call.data.split("_")[1])
+    await state.update_data(edit_prod_id=prod_id)
+    p = db_query("SELECT category, panel_name, name, price_inr, reseller_price, stock, device_limit FROM products WHERE id=?", (prod_id,), fetchone=True)
+    if not p: return await call.answer("Product not found.", show_alert=True)
+    
+    text = f"📦 <b>Managing Product #{prod_id}</b>\n\nCategory: {p[0]}\nPanel: {p[1]}\nPackage: {p[2]}\nPrice: {fmt_curr(p[3])} (Reseller: {fmt_curr(p[4])})\nStock: {p[5]}\nDevice Limit: {p[6]}"
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="➕ Add Keys", callback_data=f"prod_addkeys_{prod_id}", style="success"), InlineKeyboardButton(text="🗑 Delete Product", callback_data=f"prod_del_{prod_id}", style="danger")],
+        [InlineKeyboardButton(text="Back to Manager", callback_data="admin_manage_prods", icon_custom_emoji_id=get_emoji_icon("back"), style="danger")]
+    ])
+    await call.message.edit_text(text, reply_markup=kb, parse_mode='HTML')
+
+@dp.callback_query(F.data.startswith("prod_addkeys_"))
+async def prod_addkeys_start(call: CallbackQuery, state: FSMContext):
+    if call.from_user.id != ADMIN_ID: return
+    prod_id = int(call.data.split("_")[2])
+    await state.update_data(edit_prod_id=prod_id)
+    await call.message.edit_text("🔑 <b>Send the new license keys to add (one per line):</b>", reply_markup=admin_back_kb(), parse_mode='HTML')
+    await state.set_state(AdminStates.wait_for_add_keys)
+
+@dp.message(AdminStates.wait_for_add_keys)
+async def process_added_keys(m: Message, state: FSMContext):
+    data = await state.get_data()
+    prod_id = data.get("edit_prod_id")
+    keys = [k.strip() for k in m.text.split("\n") if k.strip()]
+    for k in keys:
+        db_query("INSERT INTO product_keys (product_id, key_text, is_used) VALUES (?, ?, 0)", (prod_id, k))
+    db_query("UPDATE products SET stock = stock + ? WHERE id=?", (len(keys), prod_id))
+    await m.answer(f"✅ Successfully added {len(keys)} new keys to product vault!", reply_markup=admin_kb(), parse_mode='HTML')
+    await state.clear()
+
+@dp.callback_query(F.data.startswith("prod_del_"))
+async def delete_product(call: CallbackQuery):
+    if call.from_user.id != ADMIN_ID: return
+    prod_id = int(call.data.split("_")[2])
+    db_query("UPDATE products SET is_active=0 WHERE id=?", (prod_id,))
+    await call.answer("🗑 Product deactivated/deleted successfully!", show_alert=True)
+    await admin_manage_prods(call)
+
+@dp.callback_query(F.data == "admin_create_coupon")
+async def create_coupon_start(call: CallbackQuery, state: FSMContext):
+    if call.from_user.id != ADMIN_ID: return
+    await call.message.edit_text("🎟 Enter the new promo code string (e.g., <code>DISCOUNT50</code>):", reply_markup=admin_back_kb(), parse_mode='HTML')
+    await state.set_state(AdminStates.add_coupon_code)
+
+@dp.message(AdminStates.add_coupon_code)
+async def coupon_code_entered(m: Message, state: FSMContext):
+    await state.update_data(code=m.text.strip().upper())
+    await m.answer("🎟 Enter the amount value for this coupon in INR:", reply_markup=admin_back_kb(), parse_mode='HTML')
+    await state.set_state(AdminStates.add_coupon_amount)
+
+@dp.message(AdminStates.add_coupon_amount)
+async def coupon_amount_entered(m: Message, state: FSMContext):
+    try:
+        amt = float(m.text)
+        await state.update_data(amount=amt)
+        await m.answer("🎟 Enter how many total uses this coupon allows:", reply_markup=admin_back_kb(), parse_mode='HTML')
+        await state.set_state(AdminStates.add_coupon_uses)
+    except ValueError:
+        await m.answer("❌ Please enter a valid number.")
+
+@dp.message(AdminStates.add_coupon_uses)
+async def coupon_uses_entered(m: Message, state: FSMContext):
+    try:
+        uses = int(m.text)
+        data = await state.get_data()
+        db_query("INSERT OR REPLACE INTO coupons (code, amount, uses_left) VALUES (?, ?, ?)", (data['code'], data['amount'], uses))
+        await m.answer(f"🎉 <b>Coupon Created!</b>\nCode: <code>{data['code']}</code>\nAmount: {fmt_curr(data['amount'])}\nUses: {uses}", reply_markup=admin_kb(), parse_mode='HTML')
+        await state.clear()
+    except ValueError:
+        await m.answer("❌ Please enter a valid integer.")
+
+@dp.callback_query(F.data == "admin_broadcast_btn")
+async def broadcast_start(call: CallbackQuery, state: FSMContext):
+    if call.from_user.id != ADMIN_ID: return
+    await call.message.edit_text("📢 Send the message you want to broadcast to all registered bot users:", reply_markup=admin_back_kb(), parse_mode='HTML')
+    await state.set_state(AdminStates.broadcast_msg)
+
+@dp.message(AdminStates.broadcast_msg)
+async def execute_broadcast(m: Message, state: FSMContext):
+    text = m.text
+    users = db_query("SELECT user_id FROM users", fetchall=True)
+    await m.answer(f"🚀 Broadcasting to {len(users)} users...")
+    success = 0
+    for u in users:
+        try:
+            await bot.send_message(u[0], text, parse_mode='HTML')
+            success += 1
+            await asyncio.sleep(0.05)
+        except:
+            pass
+    await m.answer(f"✅ Broadcast finished. Successfully delivered to {success}/{len(users)} users.", reply_markup=admin_kb(), parse_mode='HTML')
+    await state.clear()
+
+@dp.callback_query(F.data == "admin_view_tickets")
+async def admin_view_tickets(call: CallbackQuery):
+    if call.from_user.id != ADMIN_ID: return
+    tickets = db_query("SELECT id, user_id, message, created_at FROM tickets WHERE status='Open' ORDER BY id DESC LIMIT 5", fetchall=True)
+    if not tickets: return await call.message.edit_text("🎫 No open support tickets right now.", reply_markup=admin_back_kb(), parse_mode='HTML')
+    kb = InlineKeyboardMarkup(inline_keyboard=[])
+    for t in tickets:
+        kb.inline_keyboard.append([InlineKeyboardButton(text=f"Ticket #{t[0]} (User: {t[1]})", callback_data=f"adminticket_{t[0]}")])
+    kb.inline_keyboard.append([InlineKeyboardButton(text="Back", callback_data="admin_panel_back", icon_custom_emoji_id=get_emoji_icon("back"), style="danger")])
+    await call.message.edit_text("🎫 <b>Open Support Tickets:</b>", reply_markup=kb, parse_mode='HTML')
+
+@dp.callback_query(F.data.startswith("adminticket_"))
+async def admin_reply_ticket(call: CallbackQuery, state: FSMContext):
+    if call.from_user.id != ADMIN_ID: return
+    ticket_id = int(call.data.split("_")[1])
+    t = db_query("SELECT user_id, message, created_at FROM tickets WHERE id=?", (ticket_id,), fetchone=True)
+    if not t: return await call.answer("Ticket not found.", show_alert=True)
+    await state.update_data(reply_ticket_id=ticket_id, target_ticket_user=t[0])
+    text = f"🎫 <b>Ticket #{ticket_id}</b>\nFrom: <code>{t[0]}</code>\nDate: {t[2]}\n\nMessage:\n<i>{t[1]}</i>\n\n👇 <b>Type your reply message to send to this user:</b>"
+    kb = admin_back_kb()
+    await call.message.edit_text(text, reply_markup=kb, parse_mode='HTML')
+    await state.set_state(AdminStates.ticket_reply_msg)
+
+@dp.message(AdminStates.ticket_reply_msg)
+async def send_admin_ticket_reply(m: Message, state: FSMContext):
+    data = await state.get_data()
+    t_id = data.get("reply_ticket_id")
+    u_id = data.get("target_ticket_user")
+    reply_text = m.text
+    db_query("UPDATE tickets SET status='Closed' WHERE id=?", (t_id,))
+    try:
+        await bot.send_message(u_id, f"🎫 <b>Support Reply for Ticket #{t_id}:</b>\n\n{reply_text}", parse_mode='HTML')
+        await m.answer(f"✅ Reply successfully sent to user <code>{u_id}</code> and ticket closed.", reply_markup=admin_kb(), parse_mode='HTML')
+    except Exception as e:
+        await m.answer(f"⚠️ Ticket closed, but failed to deliver message: {e}", reply_markup=admin_kb())
+    await state.clear()
+
+@dp.callback_query(F.data == "admin_setup_fampay")
+async def admin_setup_fampay(call: CallbackQuery, state: FSMContext):
+    if call.from_user.id != ADMIN_ID: return
+    current_key = get_setting("fampay_api_key", "Not Set")
+    current_upi = get_setting("fampay_upi_id", "Not Set")
+    text = f"⚙️ <b>FamPay Gateway Configuration</b>\n\nCurrent API Key: <code>{current_key}</code>\nCurrent UPI ID: <code>{current_upi}</code>\n\n👇 <b>Send your FamPay API Key:</b>"
+    kb = admin_back_kb()
+    await call.message.edit_text(text, reply_markup=kb, parse_mode='HTML')
+    await state.set_state(AdminStates.wait_for_fampay_api)
+
+@dp.message(AdminStates.wait_for_fampay_api)
+async def save_fampay_api(m: Message, state: FSMContext):
+    key = m.text.strip()
+    set_setting("fampay_api_key", key)
+    await m.answer("✅ API Key saved successfully!\n\nNow, enter your business **UPI ID** (e.g., `merchant@ybl`):", reply_markup=admin_back_kb(), parse_mode='HTML')
+    await state.set_state(AdminStates.wait_for_fampay_upi)
+
+@dp.message(AdminStates.wait_for_fampay_upi)
+async def save_fampay_upi(m: Message, state: FSMContext):
+    upi = m.text.strip()
+    set_setting("fampay_upi_id", upi)
+    await m.answer(f"🎉 <b>FamPay Gateway Configured!</b>\nUPI ID: <code>{upi}</code>", reply_markup=admin_kb(), parse_mode='HTML')
+    await state.clear()
+
+@dp.callback_query(F.data == "admin_toggle_bot")
+async def toggle_bot_status(call: CallbackQuery):
+    if call.from_user.id != ADMIN_ID: return
+    current = get_setting("bot_status", "ON")
+    new_status = "OFF" if current == "ON" else "ON"
+    set_setting("bot_status", new_status)
+    await call.message.edit_reply_markup(reply_markup=admin_kb())
+ 
     
     try:
     
