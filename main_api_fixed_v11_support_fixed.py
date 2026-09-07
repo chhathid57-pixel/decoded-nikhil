@@ -25,11 +25,10 @@ from aiogram.types import (
 # ==============================================================================
 # 1. BOT CONFIGURATION & CONSTANTS
 # ==============================================================================
-BOT_TOKEN = "8900463951:AAH6NxFFLmZqaQMrN5VZVMya6zSPQJ1zl5k"
-BOT_USERNAME = "@CYBER_HARDIK_SHOP_BOT"
-ADMIN_ID = 8620035649
-SECOND_ADMIN_ID = 8649761210
-ADMIN_CONTACT = "@CYBER_HARDIK"
+BOT_TOKEN = "8721360718:AAFKGYtJOiexAvW0evSWMr7_rMspOelwKb8"
+BOT_USERNAME = "Dxcodxd_panel_bot"
+ADMIN_ID = 6452869652
+ADMIN_CONTACT = "@Dery8990"
 
 VIP_DISCOUNT_PERCENTAGE = 15.0
 VIP_PRICE_INR = 299.0
