@@ -444,7 +444,7 @@ def init_db() -> None:
         ('all_files_link', 'None'),
        ('fampay_api_key',fam_1a6bad3a52bb47e02ff7c301f9da3b4e0295ae2f'),
  
-        ('fampay_base_url', 'https://fampay.anujbots.xyz/'),
+        ('fampay_base_url', 'https://fam.aryanispe.in),
 
 
         ('fampay_gmail', 'Shankarmahato3239@gmail.com'),
