@@ -442,8 +442,10 @@ def init_db() -> None:
         ('bot_status', 'ON'),
         ('how_to_video', 'None'),
         ('all_files_link', 'None'),
-        ('fampay_api_key', ''),
-        ('fampay_base_url', ('fampay_base_url', 'https://fampay.anujbots.xyz/'),
+       ('fampay_api_key', 'FAM_20c2ed43ec69c456bb25d23221854b8f46cfa9b460cebe85'),
+ 
+        ('fampay_base_url', 'https://fampay.anujbots.xyz/'),
+
 
         ('fampay_gmail', ''),
         ('fampay_upi', ''),
