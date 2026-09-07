@@ -78,6 +78,29 @@ async def generate_and_send_key(message, product_id):
     else:
         await message.answer("⚠️ भुगतान सफल हो गया है, लेकिन ऑटो-की जनरेट करने में एरर आया है। कृपया एडमिन से संपर्क करें।")
 
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+
+# यह फंक्शन आपके बॉट में 'Order Summary' और चारों पेमेंट विकल्प दिखाएगा
+async def show_order_summary(callback_query: CallbackQuery, product_name: str, price: float, user_balance: float, product_id: str):
+    text = (
+        f"🧾 **ORDER SUMMARY**\n\n"
+        f"📦 {product_name}\n"
+        f"🔢 Quantity: 1\n"
+        f"🏷️ Price per key: ₹{price}\n"
+        f"💰 Total: ₹{price}\n"
+        f"👛 Wallet Balance: ₹{user_balance}\n\n"
+        f"⚡ Choose a payment method:"
+    )
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f"💳 Wallet Balance – ₹{price}", callback_data=f"pay_wallet_{product_id}")],
+        [InlineKeyboardButton(text=f"🇮🇳 Pay Direct by UPI – ₹{price}", callback_data=f"pay_upi_{product_id}")],
+        [InlineKeyboardButton(text=f"🌐 Pay Direct by Binance – ₹{price}", callback_data=f"pay_binance_{product_id}")],
+        [InlineKeyboardButton(text="➕ Add Balance First", callback_data="add_balance_menu")],
+        [InlineKeyboardButton(text="🔙 BACK", callback_data="back_to_panels")]
+    ])
+    
+    await callback_query.message.edit_text(text, reply_markup=keyboard, parse_mode="Markdown")
 
 USDT_TO_INR = 90.0
 VIP_DISCOUNT_PERCENTAGE = 10.0
