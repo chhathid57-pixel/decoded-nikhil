@@ -42,9 +42,9 @@ BOT_USERNAME = "@Dxcodxd_panel_bot"
 ADMIN_ID = 6452869652
 ADMIN_CONTACT = "@Dery8990"
 
-FAMPAY_API_KEY = "YOUR_FAMPAY_API_KEY"  # Replace with your actual API key
-FAMPAY_QR_URL = "https://fampay.anujbots.xyz/qr.php"
-FAMPAY_VERIFY_URL = "https://fampay.anujbots.xyz/verify.php"
+EXTERNAL_API_URL = os.getenv("API_URL", "https://api.example.com/v1")
+UPI_ID = os.getenv("UPI_ID", "yourname@upi")
+
 
 USDT_TO_INR = 90.0
 VIP_DISCOUNT_PERCENTAGE = 10.0
