@@ -44,6 +44,22 @@ ADMIN_CONTACT = "@Dery8990"
 
 EXTERNAL_API_URL = os.getenv("API_URL", "https://api.example.com/v1")
 UPI_ID = os.getenv("UPI_ID", "yourname@upi")
+async def call_external_api(endpoint: str, payload: dict = None, method: str = "GET", headers: dict = None):
+    url = f"{EXTERNAL_API_URL}/{endpoint}"
+    async with aiohttp.ClientSession() as session:
+        try:
+            if method.upper() == "POST":
+                async with session.post(url, json=payload, headers=headers) as response:
+                    if response.status in [200, 201]:
+                        return await response.json()
+                    return {"status": "error", "code": response.status}
+            else:
+                async with session.get(url, headers=headers) as response:
+                    if response.status == 200:
+                        return await response.json()
+                    return {"status": "error", "code": response.status}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
 
 
 USDT_TO_INR = 90.0
