@@ -443,7 +443,8 @@ def init_db() -> None:
         ('how_to_video', 'None'),
         ('all_files_link', 'None'),
         ('fampay_api_key', ''),
-        ('fampay_base_url', 'https://fam.aryanispe.in'),
+        ('fampay_base_url', ('fampay_base_url', 'https://fampay.anujbots.xyz/'),
+
         ('fampay_gmail', ''),
         ('fampay_upi', ''),
         ('vip_status', 'OFF'),
