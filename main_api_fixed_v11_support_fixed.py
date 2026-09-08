@@ -2869,7 +2869,7 @@ def normalize_api_duration(duration: str) -> str:
     return value
 
 async def fetch_external_key(product_id: str, duration: str, android_id: str = "") -> dict:
-    """Buy a key using direct hardcoded Railway API credentials."""
+    """Buy a key using direct hardcoded Railway API credentials with formatted response."""
     endpoint_url = "https://bingomodsshop-production.up.railway.app/api/v1/generate-key"
     token = "bkey_KkQLzwp2yv8GrLMYXuVVzkEGxFUjSRuuwDMJXjqa1w"
 
@@ -2899,7 +2899,22 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
         async with aiohttp.ClientSession() as session:
             async with session.post(endpoint_url, json=payload, headers=headers, timeout=timeout) as response:
                 res_json = await response.json()
-                return res_json
+                
+                if response.status in (200, 201):
+                    key = None
+                    if isinstance(res_json, dict):
+                        key = res_json.get("key") or res_json.get("license_key") or res_json.get("code")
+                        if not key and isinstance(res_json.get("keys"), list) and len(res_json["keys"]) > 0:
+                            key = res_json["keys"][0]
+                    
+                    if key:
+                        return {"status": "success", "key": key, "data": res_json}
+                    else:
+                        return {"status": "success", "key": str(res_json), "data": res_json}
+                else:
+                    err_msg = res_json.get("message") or res_json.get("error") or res_json.get("detail") or f"HTTP {response.status}"
+                    return {"status": "error", "msg": err_msg}
+
     except Exception as e:
         return {"status": "error", "msg": str(e)}
 
