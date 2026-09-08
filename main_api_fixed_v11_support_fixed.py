@@ -2710,8 +2710,9 @@ async def setup_fampay_start(call: CallbackQuery, state: FSMContext):
         f"🌐 API Base URL: <code>{current_url}</code>\n"
         f"🔑 API Key: <code>{masked}</code>\n"
         f"📧 FamPay Gmail: <code>{current_gmail or 'Not saved'}</code>\n"
-        f"💠 FamPay UPI ID: <code>{current_upi or 'Not saved'}</code>\n\n"
-        "Send the <b>Gateway Base URL</b> first. Example: <code>https://fam.aryanispe.in</code>\n"
+        f"💠 FamPay SendUPI ID: <code>{current_upi or 'Not saved'}</code>\n\n"
+        "Send the <b>Gateway Base URL</b> first. Example: <code>https://famgateway.in</code>\n"
+
         "Then the bot will ask for API key, FamPay-linked Gmail, and FamPay UPI ID.\n\n"
         "⚠️ Gmail/App Password and UPI are configured on the gateway website/dashboard; this bot stores the merchant identifiers only and does not send your Gmail password to the API.\n\n"
         "<i>Type /cancel to abort.</i>"
@@ -2734,7 +2735,8 @@ async def fampay_api(m: Message, state: FSMContext):
         candidate = value.rstrip("/")
         parsed = urlparse(candidate)
         if parsed.scheme not in ("http", "https") or not parsed.netloc:
-            return await m.answer("❌ Invalid URL. Send a full HTTPS/HTTP base URL, e.g. <code>https://fam.aryanispe.in</code>.", parse_mode='HTML')
+            return await m.answer("❌ Invalid URL. Send a full HTTPS/HTTP base URL, e.g. <code>https://famgateway.in</code>", parse_mode='HTML')
+
         set_setting("fampay_base_url", candidate)
         await state.update_data(fampay_setup_step="api_key")
         return await m.answer("✅ Base URL saved.\n\n🔑 Now send the <b>FamGateway API Key</b>.", parse_mode='HTML')
