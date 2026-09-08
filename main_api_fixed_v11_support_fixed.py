@@ -3066,11 +3066,10 @@ async def handle_pay_upi(call: CallbackQuery):
                     await call.message.answer_photo(
                         photo=photo_file,
                         caption=f"👇 **₹{amount}** ka payment karne ke liye is QR code ko scan karein."
-                    )
-                elif resp.status == 401:
-                    await call.message.answer("❌ Error 401: FamGateway API Key missing hai. Admin panel se API key save karein.")
-                else:
-                    await call.message.answer(f"❌ Gateway Error ({resp.status}). Admin panel check karein.")
+                                    else:
+                    err_text = await resp.text()
+                    await call.message.answer(f"❌ Gateway Error ({resp.status})\nDetails: `{err_text}`")
+
 
     except Exception as e:
         await call.message.answer(f"❌ QR Error: {str(e)}")
