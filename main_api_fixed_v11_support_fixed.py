@@ -2869,79 +2869,55 @@ def normalize_api_duration(duration: str) -> str:
     return value
 
 async def fetch_external_key(product_id: str, duration: str, android_id: str = "") -> dict:
-    """Buy a key using a fresh aiohttp session for every API attempt."""
-    url = get_setting("external_api_url", "https://adminpanels.shop/api/reseller_v1.php").strip()
+    """Buy a key using a fresh aiohttp session for Railway Reseller API."""
+    url = get_setting("external_api_url", "https://bingomodsshop-production.up.railway.app").strip()
     api_key = get_setting("external_api_key", "").strip()
     master_key = get_setting("external_master_key", "").strip()
 
     if not url:
         return {"status": "error", "msg": "External API URL is not configured"}
-    if not api_key:
+    
+    token = master_key or api_key
+    if not token:
         return {"status": "error", "msg": "External API key is not configured"}
 
     product_id = str(product_id or "").strip()
-    duration = str(duration or "").strip()
     if not product_id:
         return {"status": "error", "msg": "External API Product ID is empty"}
-    if not duration:
-        return {"status": "error", "msg": "Product duration is empty"}
 
-    data = {"api_key": api_key, "action": "buy", "product_id": product_id, "duration": duration}
-    if android_id:
-        data["android_id"] = str(android_id).strip()
+    # Base URL में /api/v1/generate-key जोड़ना
+    base_clean = url.rstrip('/')
+    if not base_clean.endswith('/api/v1'):
+        endpoint_url = f"{base_clean}/api/v1/generate-key"
+    else:
+        endpoint_url = f"{base_clean}/generate-key"
+
+    try:
+        variant_id = int(product_id)
+    except ValueError:
+        variant_id = product_id
+
+    payload = {
+        "variant_id": variant_id,
+        "quantity": 1
+    }
 
     headers = {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Accept": "application/json, text/plain, */*",
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "Accept": "application/json"
     }
-    if master_key:
-        headers["x-master-key"] = master_key
 
     timeout = aiohttp.ClientTimeout(total=15, connect=5, sock_connect=5, sock_read=10)
 
-    for attempt in range(1, 3):
-        try:
-            logger.info("External API BUY attempt=%s product_id=%r duration=%r", attempt, product_id, duration)
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(endpoint_url, json=payload, headers=headers, timeout=timeout) as response:
+                res_json = await response.json()
+                return res_json
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
 
-            # Never reuse a ClientSession/connector from a previous attempt.
-            connector = aiohttp.TCPConnector(family=socket.AF_INET, force_close=True, ssl=True)
-            try:
-                async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
-                    async with session.post(url, data=data, headers=headers, allow_redirects=True) as resp:
-                        raw = await resp.text()
-                        logger.info("External API BUY response: HTTP %s body=%s", resp.status, raw[:1000])
-
-                        if resp.status != 200:
-                            return {"status": "error", "msg": f"HTTP {resp.status}: {raw[:500]}"}
-                        if not raw.strip():
-                            return {"status": "error", "msg": "API returned an empty response"}
-                        try:
-                            result = json.loads(raw)
-                        except json.JSONDecodeError:
-                            return {"status": "error", "msg": f"API returned invalid JSON: {raw[:300]}"}
-                        if not isinstance(result, dict):
-                            return {"status": "error", "msg": "API returned an invalid response object"}
-                        return result
-            finally:
-                if not connector.closed:
-                    await connector.close()
-
-        except (aiohttp.ClientConnectorError, aiohttp.ClientConnectionError, aiohttp.ServerTimeoutError, asyncio.TimeoutError) as exc:
-            logger.warning("External API connection attempt %s failed: %s", attempt, exc)
-            if attempt == 1:
-                await asyncio.sleep(1)
-                continue
-            return {"status": "error", "msg": f"API connection failed: {type(exc).__name__}: {exc}"}
-        except aiohttp.ClientError as exc:
-            logger.exception("External API client error")
-            return {"status": "error", "msg": f"API client error: {exc}"}
-        except Exception as exc:
-            logger.exception("API unexpected error")
-            return {"status": "error", "msg": f"API unexpected error: {exc}"}
-
-    return {"status": "error", "msg": "API request failed after retries"}
-
-@dp.callback_query(F.data == "admin_setup_external_api")
 async def admin_setup_external_api(call: CallbackQuery, state: FSMContext):
     if not is_admin(call.from_user.id):
         return
