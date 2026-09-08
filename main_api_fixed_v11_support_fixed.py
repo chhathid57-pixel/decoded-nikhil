@@ -3035,16 +3035,26 @@ async def send_order_summary(event, product_name="12 Hours", price=40.0, user_ba
 async def handle_pay_wallet(call: CallbackQuery):
     await call.answer("Wallet balance check ho raha hai...", show_alert=True)
 @dp.callback_query(F.data.startswith("order_upi_"))
-
 async def handle_pay_upi(call: CallbackQuery):
     try:
         amount = int(float(call.data.split("_")[2]))
-        await call.answer("QR Code generate ho raha hai...", show_alert=False)
-        await call.message.answer(f"👇 ₹{amount} ka payment karne ke liye QR code scan karein:")
-    except Exception as e:
-        await call.answer("Error generating QR", show_alert=True)
+        await call.answer("FamGateway se QR generate ho raha hai...", show_alert=False)
+        
+        base_url = get_setting("fampay_base_url", "").rstrip("/")
+        if not base_url:
+            await call.message.answer("❌ FamGateway setup nahi hai. Pehle admin panel se Base URL setup karein.")
+            return
 
-    
+        # FamGateway QR API endpoint
+        qr_url = f"{base_url}/api/qr.php?am={amount}&note=Pay_{call.from_user.id}"
+        
+        await call.message.answer_photo(
+            photo=qr_url,
+            caption=f"👇 **₹{amount}** ka payment karne ke liye is QR code ko scan karein."
+        )
+    except Exception as e:
+        await call.answer("QR Code generate nahi ho paya.", show_alert=True)
+
 
 @dp.callback_query(F.data.startswith("order_binance_"))
 async def handle_pay_binance(call: CallbackQuery):
