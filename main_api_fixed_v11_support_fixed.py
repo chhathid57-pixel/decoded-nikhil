@@ -3038,13 +3038,13 @@ async def send_order_summary(event, product_name="12 Hours", price=40.0, user_ba
 async def handle_pay_wallet(call: CallbackQuery):
     await call.answer("Wallet balance check ho raha hai...", show_alert=True)
 @dp.callback_query(F.data.startswith("order_upi_"))
-async def handle_pay_upi(call: CallbackQuery):
+ async def handle_pay_upi(call: CallbackQuery):
     try:
         amount = int(float(call.data.split("_")[2]))
         await call.answer("QR Code generate ho raha hai...", show_alert=False)
         
         base_url = get_fampay_base_url()
-         api_key = get_setting("fampay_api_key", "").strip() or get_setting("fampay_key", "").strip()
+        api_key = get_setting("fampay_api_key", "").strip()
         fampay_upi = get_setting("fampay_upi", "").strip()
 
         if base_url:
@@ -3074,6 +3074,7 @@ async def handle_pay_upi(call: CallbackQuery):
 
     except Exception as e:
         await call.message.answer(f"❌ QR Error: {str(e)}")
+
 
 @dp.callback_query(F.data.startswith("order_binance_"))
 async def handle_pay_binance(call: CallbackQuery):
