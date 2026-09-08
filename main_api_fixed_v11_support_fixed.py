@@ -3038,22 +3038,38 @@ async def handle_pay_wallet(call: CallbackQuery):
 async def handle_pay_upi(call: CallbackQuery):
     try:
         amount = int(float(call.data.split("_")[2]))
-        await call.answer("FamGateway se QR generate ho raha hai...", show_alert=False)
+        await call.answer("QR Code generate ho raha hai...", show_alert=False)
         
         base_url = get_setting("fampay_base_url", "").rstrip("/")
-        if not base_url:
-            await call.message.answer("❌ FamGateway setup nahi hai. Pehle admin panel se Base URL setup karein.")
+        fampay_upi = get_setting("fampay_upi", "")
+
+        # 1. Primary: FamGateway QR
+        if base_url:
+            qr_url = f"{base_url}/api/qr.php?am={amount}&note=Pay_{call.from_user.id}"
+        # 2. Fallback: Direct UPI QR
+        elif fampay_upi:
+            upi_link = f"upi://pay?pa={fampay_upi}&pn=Payment&am={amount}&cu=INR"
+            qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={upi_link}"
+        else:
+            await call.message.answer("❌ FamGateway ya UPI ID set nahi hai. Pehle Admin Panel se setup karein.")
             return
 
-        # FamGateway QR API endpoint
-        qr_url = f"{base_url}/api/qr.php?am={amount}&note=Pay_{call.from_user.id}"
-        
-        await call.message.answer_photo(
-            photo=qr_url,
-            caption=f"👇 **₹{amount}** ka payment karne ke liye is QR code ko scan karein."
-        )
+        # QR Image download karke Telegram me bhejta hai
+        async with aiohttp.ClientSession() as session:
+            async with session.get(qr_url) as resp:
+                if resp.status == 200:
+                    image_bytes = await resp.read()
+                    photo_file = BufferedInputFile(image_bytes, filename="qr.png")
+                    await call.message.answer_photo(
+                        photo=photo_file,
+                        caption=f"👇 **₹{amount}** ka payment karne ke liye is QR code ko scan karein."
+                    )
+                else:
+                    await call.message.answer(f"❌ Gateway se QR nahi mila (Error code: {resp.status}). Admin panel me URL check karein.")
+
     except Exception as e:
-        await call.answer("QR Code generate nahi ho paya.", show_alert=True)
+        await call.message.answer(f"❌ QR Error: {str(e)}")
+
 
 
 @dp.callback_query(F.data.startswith("order_binance_"))
