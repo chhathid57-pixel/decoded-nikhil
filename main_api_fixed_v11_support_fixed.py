@@ -3037,6 +3037,7 @@ async def send_order_summary(event, product_name="12 Hours", price=40.0, user_ba
 async def handle_pay_wallet(call: CallbackQuery):
     await call.answer("Wallet balance check ho raha hai...", show_alert=True)
 @dp.callback_query(F.data.startswith("order_upi_"))
+
 async def handle_pay_upi(call: CallbackQuery):
     try:
         amount = int(float(call.data.split("_")[2]))
@@ -3048,9 +3049,9 @@ async def handle_pay_upi(call: CallbackQuery):
 
         if base_url:
             if api_key:
-                qr_url = f"{base_url}/api/qr.php?api_key={api_key}&am={amount}&note=Pay_{call.from_user.id}"
+                qr_url = f"{base_url}/api/qr.php?api_key={api_key}&am={amount}&amount={amount}&note=Pay_{call.from_user.id}"
             else:
-                qr_url = f"{base_url}/api/qr.php?am={amount}&note=Pay_{call.from_user.id}"
+                qr_url = f"{base_url}/api/qr.php?am={amount}&amount={amount}&note=Pay_{call.from_user.id}"
         elif fampay_upi:
             upi_link = f"upi://pay?pa={fampay_upi}&pn=Payment&am={amount}&cu=INR"
             qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={upi_link}"
@@ -3073,6 +3074,7 @@ async def handle_pay_upi(call: CallbackQuery):
 
     except Exception as e:
         await call.message.answer(f"❌ QR Error: {str(e)}")
+
 
 
 @dp.callback_query(F.data.startswith("order_binance_"))
