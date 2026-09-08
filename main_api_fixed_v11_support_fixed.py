@@ -1321,7 +1321,8 @@ async def process_buy(call: CallbackQuery):
     if not external_enabled and (prod[2] is None or prod[2] <= 0):
         return await call.answer("❌ This product is out of stock!", show_alert=True)
     if user[0] < final_price:
-        return await call.answer(f"❌ Insufficient Balance! You need {fmt_curr(final_price)}.", show_alert=True)
+                    return await send_order_summary(call, product_name=prod[0], price=final_price, user_balance=user[0])
+
 
     # Prevent double-click purchases while processing the external API.
     await call.answer("⏳ Processing your purchase...", show_alert=False)
