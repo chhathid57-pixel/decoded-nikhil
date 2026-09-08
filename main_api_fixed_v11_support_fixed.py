@@ -3058,12 +3058,15 @@ async def handle_pay_upi(call: CallbackQuery):
                         checkout_url = d.get("checkout_url")
                         payable_amount = d.get("payable_amount", amount)
 
+                                                order_id = d.get("order_id", "123")
                         keyboard = InlineKeyboardMarkup(
                             inline_keyboard=[
-                                [InlineKeyboardButton(text=f"🔗 Pay ₹{payable_amount} on Gateway", url=checkout_url)],
-                                [InlineKeyboardButton(text="⬅️ BACK", callback_data="go_back")]
+                                [InlineKeyboardButton(text=f"💳 Pay ₹{payable_amount} (Auto Redirects)", url=checkout_url)],
+                                [InlineKeyboardButton(text="🟢 🔄 Manual Verify", callback_data=f"check_pay_{order_id}")],
+                                [InlineKeyboardButton(text="⬅️ Cancel Transaction", callback_data="go_back")]
                             ]
                         )
+
 
                         await call.message.answer(
                             f"👇 **₹{payable_amount}** ka payment karne ke liye niche diye gaye button par click karein:",
