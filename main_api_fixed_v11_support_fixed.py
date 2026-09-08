@@ -3042,35 +3042,41 @@ async def handle_pay_upi(call: CallbackQuery):
         amount = int(float(call.data.split("_")[2]))
         await call.answer("Payment link generate ho raha hai...", show_alert=False)
         
-        base_url = get_fampay_base_url()
         api_key = get_setting("fampay_api_key", "").strip()
-        fampay_upi = get_setting("fampay_upi", "").strip()
-
-        if base_url:
-            if api_key:
-                pay_link = f"{base_url}/pay?api_key={api_key}&am={amount}&amount={amount}&note=Pay_{call.from_user.id}"
-            else:
-                pay_link = f"{base_url}/pay?am={amount}&amount={amount}&note=Pay_{call.from_user.id}"
-        elif fampay_upi:
-            pay_link = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=upi://pay?pa={fampay_upi}&pn=Payment&am={amount}&cu=INR"
-        else:
-            await call.message.answer("❌ FamGateway ya UPI ID set nahi hai. Pehle Admin Panel se setup karein.")
+        if not api_key:
+            await call.message.answer("❌ FamGateway API Key set nahi hai. Pehle Admin Panel se API Key set karein.")
             return
 
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text=f"🔗 Pay ₹{amount} on Gateway", url=pay_link)],
-                [InlineKeyboardButton(text="⬅️ BACK", callback_data="go_back")]
-            ]
-        )
+        api_url = f"https://famgateway.in/api/qr.php?api_key={api_key}&amount={amount}"
 
-        await call.message.answer(
-            f"👇 **₹{amount}** ka payment karne ke liye niche diye gaye button par click karein. Gateway par aapko QR scanner mil jayega:",
-            reply_markup=keyboard
-        )
+        async with aiohttp.ClientSession() as session:
+            async with session.get(api_url) as resp:
+                if resp.status == 200:
+                    res_json = await resp.json()
+                    if res_json.get("status") == "success":
+                        d = res_json.get("data", {})
+                        checkout_url = d.get("checkout_url")
+                        payable_amount = d.get("payable_amount", amount)
+
+                        keyboard = InlineKeyboardMarkup(
+                            inline_keyboard=[
+                                [InlineKeyboardButton(text=f"🔗 Pay ₹{payable_amount} on Gateway", url=checkout_url)],
+                                [InlineKeyboardButton(text="⬅️ BACK", callback_data="go_back")]
+                            ]
+                        )
+
+                        await call.message.answer(
+                            f"👇 **₹{payable_amount}** ka payment karne ke liye niche diye gaye button par click karein:",
+                            reply_markup=keyboard
+                        )
+                    else:
+                        await call.message.answer(f"❌ FamGateway Error: {res_json.get('message', 'Invalid response')}")
+                else:
+                    await call.message.answer(f"❌ API Request Failed ({resp.status})")
 
     except Exception as e:
         await call.message.answer(f"❌ Error: {str(e)}")
+
 
 
 
