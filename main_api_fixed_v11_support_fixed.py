@@ -3036,7 +3036,7 @@ async def send_order_summary(event, product_name="12 Hours", price=40.0, user_ba
 @dp.callback_query(F.data.startswith("order_wallet_"))
 async def handle_pay_wallet(call: CallbackQuery):
     await call.answer("Wallet balance check ho raha hai...", show_alert=True)
-@@dp.callback_query(F.data.startswith("order_upi_"))
+@dp.callback_query(F.data.startswith("order_upi_"))
 async def handle_pay_upi(call: CallbackQuery):
     try:
         amount = int(float(call.data.split("_")[2]))
