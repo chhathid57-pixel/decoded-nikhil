@@ -3012,15 +3012,16 @@ async def send_order_summary(event, product_name="12 Hours", price=40.0, user_ba
     )
 
     keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=f"💳 Wallet Balance - ₹{price:.2f}", callback_data=f"pay_wallet_{price}")],
-            [InlineKeyboardButton(text=f"🇮🇳 Pay Direct by UPI - ₹{price:.2f}", callback_data=f"pay_upi_{int(price)}")],
+    inline_keyboard=[
+        [InlineKeyboardButton(text=f"💳 Wallet Balance - ₹{price:.2f}", callback_data=f"order_wallet_{price}")],
+        [InlineKeyboardButton(text=f"🇮🇳 Pay Direct by UPI - ₹{price:.2f}", callback_data=f"order_upi_{int(price)}")],
+        [InlineKeyboardButton(text=f"🌐 Pay Direct by Binance - ₹{price:.2f}", callback_data=f"order_binance_{price}")],
+        [InlineKeyboardButton(text=f"➕ Add Balance First", callback_data="add_balance")],
+        [InlineKeyboardButton(text=f"🔙 BACK", callback_data="go_back")]
+    ]
+)
 
-            [InlineKeyboardButton(text=f"🪙 Pay Direct by Binance - ₹{price:.2f}", callback_data=f"pay_binance_{price}")],
-            [InlineKeyboardButton(text="➕ Add Balance First", callback_data="add_balance")],
-            [InlineKeyboardButton(text="↩️ BACK", callback_data="go_back")]
-        ]
-    )
+        
 
     if isinstance(event, CallbackQuery):
         await event.message.answer(summary_text, reply_markup=keyboard, parse_mode='Markdown')
@@ -3028,13 +3029,13 @@ async def send_order_summary(event, product_name="12 Hours", price=40.0, user_ba
         await event.answer(summary_text, reply_markup=keyboard, parse_mode='Markdown')
 
 
-# --- BUTTON HANDLERS ---
+# --- BUTTON HANDLERS --- 
+@dp.callback_query(F.data.startswith("order_wallet_"))
 
-@dp.callback_query(F.data.startswith("pay_wallet_"))
 async def handle_pay_wallet(call: CallbackQuery):
     await call.answer("Wallet balance check ho raha hai...", show_alert=True)
+@dp.callback_query(F.data.startswith("order_upi_"))
 
-@dp.callback_query(F.data.startswith("pay_upi_"))
 async def handle_pay_upi(call: CallbackQuery):
     try:
         amount = int(float(call.data.split("_")[2]))
@@ -3045,7 +3046,7 @@ async def handle_pay_upi(call: CallbackQuery):
 
     
 
-@dp.callback_query(F.data.startswith("pay_binance_"))
+@dp.callback_query(F.data.startswith("order_binance_"))
 async def handle_pay_binance(call: CallbackQuery):
     await call.answer("Binance Pay selected!", show_alert=True)
 
