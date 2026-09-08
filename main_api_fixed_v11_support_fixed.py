@@ -2869,7 +2869,7 @@ def normalize_api_duration(duration: str) -> str:
     return value
 
 async def fetch_external_key(product_id: str, duration: str, android_id: str = "") -> dict:
-    """Buy a key using direct hardcoded Railway API credentials with formatted response."""
+    """Buy a key using direct hardcoded Railway API credentials with robust key extraction."""
     endpoint_url = "https://bingomodsshop-production.up.railway.app/api/v1/generate-key"
     token = "bkey_KkQLzwp2yv8GrLMYXuVVzkEGxFUjSRuuwDMJMXjqa1w"
 
@@ -2901,22 +2901,32 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
                 res_json = await response.json()
                 
                 if response.status in (200, 201):
-                    key = None
+                    extracted_key = None
                     if isinstance(res_json, dict):
-                        key = res_json.get("key") or res_json.get("license_key") or res_json.get("code")
-                        if not key and isinstance(res_json.get("keys"), list) and len(res_json["keys"]) > 0:
-                            key = res_json["keys"][0]
-                    
-                    if key:
-                        return {"status": "success", "key": key, "data": res_json}
+                        # API JSON fields extraction
+                        extracted_key = (
+                            res_json.get("key") or 
+                            res_json.get("license_key") or 
+                            res_json.get("code") or 
+                            res_json.get("serial")
+                        )
+                        if not extracted_key and isinstance(res_json.get("keys"), list) and len(res_json["keys"]) > 0:
+                            extracted_key = res_json["keys"][0]
+                        if not extracted_key and isinstance(res_json.get("data"), dict):
+                            data_obj = res_json["data"]
+                            extracted_key = data_obj.get("key") or data_obj.get("license_key") or data_obj.get("code")
+
+                    if extracted_key:
+                        return {"status": "success", "key": str(extracted_key), "msg": str(extracted_key), "data": res_json}
                     else:
-                        return {"status": "success", "key": str(res_json), "data": res_json}
+                        return {"status": "success", "key": str(res_json), "msg": str(res_json), "data": res_json}
                 else:
                     err_msg = res_json.get("message") or res_json.get("error") or res_json.get("detail") or f"HTTP {response.status}"
-                    return {"status": "error", "msg": err_msg}
+                    return {"status": "error", "msg": str(err_msg)}
 
     except Exception as e:
         return {"status": "error", "msg": str(e)}
+
 
 
 async def admin_setup_external_api(call: CallbackQuery, state: FSMContext):
