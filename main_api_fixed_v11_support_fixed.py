@@ -2869,7 +2869,7 @@ def normalize_api_duration(duration: str) -> str:
     return value
 
 async def fetch_external_key(product_id: str, duration: str, android_id: str = "") -> dict:
-    """Buy a key using direct hardcoded Railway API credentials with full key compatibility."""
+    """Buy a key using direct hardcoded Railway API credentials with safe string formatting."""
     endpoint_url = "https://bingomodsshop-production.up.railway.app/api/v1/generate-key"
     token = "bkey_KkQLzwp2yv8GrLMYXuVVzkEGxFUjSRuuwDMJMXjqa1w"
 
@@ -2902,7 +2902,7 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
                     res_json = await response.json()
                 except Exception:
                     res_text = await response.text()
-                    return {"status": "error", "msg": f"Server response non-JSON (HTTP {response.status}): {res_text[:100]}"}
+                    return {"status": "error", "msg": f"Server response non-JSON: {res_text[:100]}"}
 
                 if response.status in (200, 201):
                     extracted_key = None
@@ -2919,13 +2919,19 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
                             data_obj = res_json["data"]
                             extracted_key = data_obj.get("key") or data_obj.get("license_key") or data_obj.get("code")
 
-                    key_str = str(extracted_key) if extracted_key else str(res_json)
+                    # Fallback to string representation if key is missing
+                    if not extracted_key:
+                        extracted_key = str(res_json)
+
+                    # Clean up string to prevent Telegram HTML parse crashes
+                    clean_key = str(extracted_key).strip().replace("<", "").replace(">", "")
+
                     return {
                         "status": "success",
                         "success": True,
-                        "key": key_str,
-                        "license_key": key_str,
-                        "msg": key_str,
+                        "key": clean_key,
+                        "license_key": clean_key,
+                        "msg": clean_key,
                         "data": res_json
                     }
                 else:
@@ -2934,7 +2940,6 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
 
     except Exception as e:
         return {"status": "error", "msg": f"Request Failed: {str(e)}"}
-
 
 
 
