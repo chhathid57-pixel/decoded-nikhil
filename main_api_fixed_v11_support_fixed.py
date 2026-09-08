@@ -3079,6 +3079,39 @@ async def handle_pay_upi(call: CallbackQuery):
 
     except Exception as e:
         await call.message.answer(f"❌ Error: {str(e)}")
+@dp.callback_query(F.data.startswith("check_pay_"))
+async def handle_manual_verify(call: CallbackQuery):
+    try:
+        order_id = call.data.split("_")[2]
+        await call.answer("Payment status check ho raha hai...", show_alert=True)
+        
+        api_key = get_setting("fampay_api_key", "").strip()
+        if not api_key:
+            await call.message.answer("❌ API Key missing.")
+            return
+
+        status_url = f"https://famgateway.in/api/status.php?api_key={api_key}&order_id={order_id}"
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(status_url) as resp:
+                if resp.status == 200:
+                    res_json = await resp.json()
+                    status = res_json.get("status")
+                    
+                    if status in ["success", "paid", "Completed"]:
+                        amount = res_json.get("amount", "0")
+                        await call.message.answer(
+                            f"✅ **Payment Verified Successfully!**\n₹{amount} ka payment confirm ho gaya hai."
+                        )
+                    else:
+                        await call.message.answer(
+                            "⏳ **Payment Pending!**\nAbhi tak payment receive nahi hua hai. Agar aapne payment kar diya hai, toh 1 minute baad dobara 'Manual Verify' dabayein."
+                        )
+                else:
+                    await call.message.answer("❌ Status check karne mein error aayi. Thodi der baad try karein.")
+
+    except Exception as e:
+        await call.message.answer(f"❌ Error: {str(e)}")
 
 
 
