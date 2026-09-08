@@ -3014,7 +3014,8 @@ async def send_order_summary(event, product_name="12 Hours", price=40.0, user_ba
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text=f"💳 Wallet Balance - ₹{price:.2f}", callback_data=f"pay_wallet_{price}")],
-            [InlineKeyboardButton(text=f"🇮🇳 Pay Direct by UPI - ₹{price:.2f}", callback_data=f"pay_upi_{price}")],
+            [InlineKeyboardButton(text=f"🇮🇳 Pay Direct by UPI - ₹{price:.2f}", callback_data=f"pay_upi_{int(price)}")],
+
             [InlineKeyboardButton(text=f"🪙 Pay Direct by Binance - ₹{price:.2f}", callback_data=f"pay_binance_{price}")],
             [InlineKeyboardButton(text="➕ Add Balance First", callback_data="add_balance")],
             [InlineKeyboardButton(text="↩️ BACK", callback_data="go_back")]
@@ -3035,7 +3036,14 @@ async def handle_pay_wallet(call: CallbackQuery):
 
 @dp.callback_query(F.data.startswith("pay_upi_"))
 async def handle_pay_upi(call: CallbackQuery):
-    await call.answer("UPI QR Code generate ho raha hai...", show_alert=True)
+    try:
+        amount = int(float(call.data.split("_")[2]))
+        await call.answer("QR Code generate ho raha hai...", show_alert=False)
+        await call.message.answer(f"👇 ₹{amount} ka payment karne ke liye QR code scan karein:")
+    except Exception as e:
+        await call.answer("Error generating QR", show_alert=True)
+
+    
 
 @dp.callback_query(F.data.startswith("pay_binance_"))
 async def handle_pay_binance(call: CallbackQuery):
