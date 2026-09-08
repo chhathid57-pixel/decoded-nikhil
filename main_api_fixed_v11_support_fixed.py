@@ -2869,7 +2869,7 @@ def normalize_api_duration(duration: str) -> str:
     return value
 
 async def fetch_external_key(product_id: str, duration: str, android_id: str = "") -> dict:
-    """Buy a key using direct hardcoded Railway API credentials with robust key extraction."""
+    """Buy a key using direct hardcoded Railway API credentials with full key compatibility."""
     endpoint_url = "https://bingomodsshop-production.up.railway.app/api/v1/generate-key"
     token = "bkey_KkQLzwp2yv8GrLMYXuVVzkEGxFUjSRuuwDMJMXjqa1w"
 
@@ -2898,12 +2898,15 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(endpoint_url, json=payload, headers=headers, timeout=timeout) as response:
-                res_json = await response.json()
-                
+                try:
+                    res_json = await response.json()
+                except Exception:
+                    res_text = await response.text()
+                    return {"status": "error", "msg": f"Server response non-JSON (HTTP {response.status}): {res_text[:100]}"}
+
                 if response.status in (200, 201):
                     extracted_key = None
                     if isinstance(res_json, dict):
-                        # API JSON fields extraction
                         extracted_key = (
                             res_json.get("key") or 
                             res_json.get("license_key") or 
@@ -2916,16 +2919,22 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
                             data_obj = res_json["data"]
                             extracted_key = data_obj.get("key") or data_obj.get("license_key") or data_obj.get("code")
 
-                    if extracted_key:
-                        return {"status": "success", "key": str(extracted_key), "msg": str(extracted_key), "data": res_json}
-                    else:
-                        return {"status": "success", "key": str(res_json), "msg": str(res_json), "data": res_json}
+                    key_str = str(extracted_key) if extracted_key else str(res_json)
+                    return {
+                        "status": "success",
+                        "success": True,
+                        "key": key_str,
+                        "license_key": key_str,
+                        "msg": key_str,
+                        "data": res_json
+                    }
                 else:
                     err_msg = res_json.get("message") or res_json.get("error") or res_json.get("detail") or f"HTTP {response.status}"
                     return {"status": "error", "msg": str(err_msg)}
 
     except Exception as e:
-        return {"status": "error", "msg": str(e)}
+        return {"status": "error", "msg": f"Request Failed: {str(e)}"}
+
 
 
 
