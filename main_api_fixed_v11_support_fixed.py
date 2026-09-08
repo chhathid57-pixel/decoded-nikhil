@@ -3041,12 +3041,13 @@ async def handle_pay_upi(call: CallbackQuery):
         amount = int(float(call.data.split("_")[2]))
         await call.answer("QR Code generate ho raha hai...", show_alert=False)
         
-        base_url = get_setting("fampay_base_url", "").rstrip("/")
-        fampay_upi = get_setting("fampay_upi", "")
+        base_url = get_fampay_base_url()
+        api_key = get_setting("fampay_api_key", "").strip()
+        fampay_upi = get_setting("fampay_upi", "").strip()
 
-        # 1. Primary: FamGateway QR
+        # 1. Primary: FamGateway QR (API Key ke saath)
         if base_url:
-            qr_url = f"{base_url}/api/qr.php?am={amount}&note=Pay_{call.from_user.id}"
+            qr_url = f"{base_url}/api/qr.php?api_key={api_key}&am={amount}&note=Pay_{call.from_user.id}"
         # 2. Fallback: Direct UPI QR
         elif fampay_upi:
             upi_link = f"upi://pay?pa={fampay_upi}&pn=Payment&am={amount}&cu=INR"
@@ -3055,7 +3056,6 @@ async def handle_pay_upi(call: CallbackQuery):
             await call.message.answer("❌ FamGateway ya UPI ID set nahi hai. Pehle Admin Panel se setup karein.")
             return
 
-        # QR Image download karke Telegram me bhejta hai
         async with aiohttp.ClientSession() as session:
             async with session.get(qr_url) as resp:
                 if resp.status == 200:
@@ -3065,8 +3065,10 @@ async def handle_pay_upi(call: CallbackQuery):
                         photo=photo_file,
                         caption=f"👇 **₹{amount}** ka payment karne ke liye is QR code ko scan karein."
                     )
+                elif resp.status == 401:
+                    await call.message.answer("❌ Error 401: FamGateway API Key missing hai. Admin panel se API key save karein.")
                 else:
-                    await call.message.answer(f"❌ Gateway se QR nahi mila (Error code: {resp.status}). Admin panel me URL check karein.")
+                    await call.message.answer(f"❌ Gateway Error ({resp.status}). Admin panel check karein.")
 
     except Exception as e:
         await call.message.answer(f"❌ QR Error: {str(e)}")
