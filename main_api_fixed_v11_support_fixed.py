@@ -3037,9 +3037,9 @@ async def send_order_summary(event, product_name="12 Hours", price=40.0, user_ba
 async def handle_pay_wallet(call: CallbackQuery):
     await call.answer("Wallet balance check ho raha hai...", show_alert=True)
 @dp.callback_query(F.data.startswith("order_upi_"))
-
 async def handle_pay_upi(call: CallbackQuery):
     try:
+        import urllib.parse
         amount = int(float(call.data.split("_")[2]))
         await call.answer("QR Code generate ho raha hai...", show_alert=False)
         
@@ -3047,17 +3047,15 @@ async def handle_pay_upi(call: CallbackQuery):
         api_key = get_setting("fampay_api_key", "").strip()
         fampay_upi = get_setting("fampay_upi", "").strip()
 
-        if base_url:
-            if api_key:
-                qr_url = f"{base_url}/api/qr.php?api_key={api_key}&am={amount}&amount={amount}&note=Pay_{call.from_user.id}"
-            else:
-                qr_url = f"{base_url}/api/qr.php?am={amount}&amount={amount}&note=Pay_{call.from_user.id}"
+        if base_url and api_key:
+            pay_link = f"{base_url}/pay?api_key={api_key}&am={amount}&amount={amount}&note=Pay_{call.from_user.id}"
+            qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={urllib.parse.quote(pay_link)}"
         elif fampay_upi:
             upi_link = f"upi://pay?pa={fampay_upi}&pn=Payment&am={amount}&cu=INR"
-            qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={upi_link}"
+            qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={urllib.parse.quote(upi_link)}"
         else:
-            await call.message.answer("❌ FamGateway ya UPI ID set nahi hai. Pehle Admin Panel se setup karein.")
-            return
+            upi_link = f"upi://pay?pa=merchant@upi&pn=Payment&am={amount}&cu=INR"
+            qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={urllib.parse.quote(upi_link)}"
 
         async with aiohttp.ClientSession() as session:
             async with session.get(qr_url) as resp:
