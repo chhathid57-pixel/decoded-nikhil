@@ -2996,6 +2996,49 @@ async def save_ext_master(m: Message, state: FSMContext):
     set_setting("external_master_key", m.text.strip())
     await m.answer("✅ External API Master Key saved.", reply_markup=admin_kb(), parse_mode='HTML')
     await state.clear()
+# ------------------ ORDER SUMMARY & PAYMENT BUTTONS ------------------
+
+async def send_order_summary(event, product_name="12 Hours", price=40.0, user_balance=0.0):
+    summary_text = (
+        f"🧾 *ORDER SUMMARY*\n"
+        f"━━━━━━━━━━━━━━━━━━━\n\n"
+        f"📦 *{product_name}*\n"
+        f"🔢 *Quantity:* 1\n"
+        f"💰 *Price per key:* ₹{price:.2f}\n"
+        f"💵 *Total:* ₹{price:.2f}\n"
+        f"👛 *Wallet Balance:* ₹{user_balance:.2f}\n\n"
+        f"👇 *Choose a payment method:*"
+    )
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=f"💳 Wallet Balance - ₹{price:.2f}", callback_data=f"pay_wallet_{price}")],
+            [InlineKeyboardButton(text=f"🇮🇳 Pay Direct by UPI - ₹{price:.2f}", callback_data=f"pay_upi_{price}")],
+            [InlineKeyboardButton(text=f"🪙 Pay Direct by Binance - ₹{price:.2f}", callback_data=f"pay_binance_{price}")],
+            [InlineKeyboardButton(text="➕ Add Balance First", callback_data="add_balance")],
+            [InlineKeyboardButton(text="↩️ BACK", callback_data="go_back")]
+        ]
+    )
+
+    if isinstance(event, CallbackQuery):
+        await event.message.answer(summary_text, reply_markup=keyboard, parse_mode='Markdown')
+    else:
+        await event.answer(summary_text, reply_markup=keyboard, parse_mode='Markdown')
+
+
+# --- BUTTON HANDLERS ---
+
+@dp.callback_query(F.data.startswith("pay_wallet_"))
+async def handle_pay_wallet(call: CallbackQuery):
+    await call.answer("Wallet balance check ho raha hai...", show_alert=True)
+
+@dp.callback_query(F.data.startswith("pay_upi_"))
+async def handle_pay_upi(call: CallbackQuery):
+    await call.answer("UPI QR Code generate ho raha hai...", show_alert=True)
+
+@dp.callback_query(F.data.startswith("pay_binance_"))
+async def handle_pay_binance(call: CallbackQuery):
+    await call.answer("Binance Pay selected!", show_alert=True)
 
 if __name__ == "__main__":
     try:
