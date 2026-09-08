@@ -3039,39 +3039,38 @@ async def handle_pay_wallet(call: CallbackQuery):
 @dp.callback_query(F.data.startswith("order_upi_"))
 async def handle_pay_upi(call: CallbackQuery):
     try:
-        import urllib.parse
         amount = int(float(call.data.split("_")[2]))
-        await call.answer("QR Code generate ho raha hai...", show_alert=False)
+        await call.answer("Payment link generate ho raha hai...", show_alert=False)
         
         base_url = get_fampay_base_url()
         api_key = get_setting("fampay_api_key", "").strip()
         fampay_upi = get_setting("fampay_upi", "").strip()
 
-        if base_url and api_key:
-            pay_link = f"{base_url}/pay?api_key={api_key}&am={amount}&amount={amount}&note=Pay_{call.from_user.id}"
-            qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={urllib.parse.quote(pay_link)}"
+        if base_url:
+            if api_key:
+                pay_link = f"{base_url}/pay?api_key={api_key}&am={amount}&amount={amount}&note=Pay_{call.from_user.id}"
+            else:
+                pay_link = f"{base_url}/pay?am={amount}&amount={amount}&note=Pay_{call.from_user.id}"
         elif fampay_upi:
-            upi_link = f"upi://pay?pa={fampay_upi}&pn=Payment&am={amount}&cu=INR"
-            qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={urllib.parse.quote(upi_link)}"
+            pay_link = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=upi://pay?pa={fampay_upi}&pn=Payment&am={amount}&cu=INR"
         else:
-            upi_link = f"upi://pay?pa=merchant@upi&pn=Payment&am={amount}&cu=INR"
-            qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={urllib.parse.quote(upi_link)}"
+            await call.message.answer("❌ FamGateway ya UPI ID set nahi hai. Pehle Admin Panel se setup karein.")
+            return
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(qr_url) as resp:
-                if resp.status == 200:
-                    image_bytes = await resp.read()
-                    photo_file = BufferedInputFile(image_bytes, filename="qr.png")
-                    await call.message.answer_photo(
-                        photo=photo_file,
-                        caption=f"👇 **₹{amount}** ka payment karne ke liye is QR code ko scan karein."
-                    )
-                else:
-                    err_text = await resp.text()
-                    await call.message.answer(f"❌ Gateway Error ({resp.status})\nDetails: `{err_text}`")
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text=f"🔗 Pay ₹{amount} on Gateway", url=pay_link)],
+                [InlineKeyboardButton(text="⬅️ BACK", callback_data="go_back")]
+            ]
+        )
+
+        await call.message.answer(
+            f"👇 **₹{amount}** ka payment karne ke liye niche diye gaye button par click karein. Gateway par aapko QR scanner mil jayega:",
+            reply_markup=keyboard
+        )
 
     except Exception as e:
-        await call.message.answer(f"❌ QR Error: {str(e)}")
+        await call.message.answer(f"❌ Error: {str(e)}")
 
 
 
