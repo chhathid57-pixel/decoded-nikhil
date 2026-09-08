@@ -2869,28 +2869,13 @@ def normalize_api_duration(duration: str) -> str:
     return value
 
 async def fetch_external_key(product_id: str, duration: str, android_id: str = "") -> dict:
-    """Buy a key using a fresh aiohttp session for Railway Reseller API."""
-    url = get_setting("external_api_url", "https://bingomodsshop-production.up.railway.app").strip()
-    api_key = get_setting("external_api_key", "").strip()
-    master_key = get_setting("external_master_key", "").strip()
-
-    if not url:
-        return {"status": "error", "msg": "External API URL is not configured"}
-    
-    token = master_key or api_key
-    if not token:
-        return {"status": "error", "msg": "External API key is not configured"}
+    """Buy a key using direct hardcoded Railway API credentials."""
+    endpoint_url = "https://bingomodsshop-production.up.railway.app/api/v1/generate-key"
+    token = "bkey_KkQLzwp2yv8GrLMYXuVVzkEGxFUjSRuuwDMJXjqa1w"
 
     product_id = str(product_id or "").strip()
     if not product_id:
         return {"status": "error", "msg": "External API Product ID is empty"}
-
-    # Base URL में /api/v1/generate-key जोड़ना
-    base_clean = url.rstrip('/')
-    if not base_clean.endswith('/api/v1'):
-        endpoint_url = f"{base_clean}/api/v1/generate-key"
-    else:
-        endpoint_url = f"{base_clean}/generate-key"
 
     try:
         variant_id = int(product_id)
@@ -2917,6 +2902,7 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
                 return res_json
     except Exception as e:
         return {"status": "error", "msg": str(e)}
+
 
 async def admin_setup_external_api(call: CallbackQuery, state: FSMContext):
     if not is_admin(call.from_user.id):
