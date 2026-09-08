@@ -2871,7 +2871,7 @@ def normalize_api_duration(duration: str) -> str:
 async def fetch_external_key(product_id: str, duration: str, android_id: str = "") -> dict:
     """Buy a key using direct hardcoded Railway API credentials with formatted response."""
     endpoint_url = "https://bingomodsshop-production.up.railway.app/api/v1/generate-key"
-    token = "bkey_KkQLzwp2yv8GrLMYXuVVzkEGxFUjSRuuwDMJXjqa1w"
+    token = "bkey_KkQLzwp2yv8GrLMYXuVVzkEGxFUjSRuuwDMJMXjqa1w"
 
     product_id = str(product_id or "").strip()
     if not product_id:
