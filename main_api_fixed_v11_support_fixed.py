@@ -873,8 +873,9 @@ async def send_advanced_notification(user_id: int, notif_type: str, amount: floa
 FAMPAY_ORDER_TTL = 300
 
 def get_fampay_base_url() -> str:
-    base = get_setting("fampay_base_url", "https://fam.aryanispe.in").strip().rstrip("/")
-    return base or "https://fam.aryanispe.in"
+    base = get_setting("fampay_base_url", "https://famgateway.in").strip().rstrip("/")
+    return base or "https://famgateway.in"
+
 
 def get_fampay_create_url() -> str:
     return f"{get_fampay_base_url()}/api/qr.php"
