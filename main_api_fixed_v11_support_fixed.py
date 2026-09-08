@@ -3044,13 +3044,14 @@ async def handle_pay_upi(call: CallbackQuery):
         await call.answer("QR Code generate ho raha hai...", show_alert=False)
         
         base_url = get_fampay_base_url()
-        api_key = get_setting("fampay_api_key", "").strip()
+         api_key = get_setting("fampay_api_key", "").strip() or get_setting("fampay_key", "").strip()
         fampay_upi = get_setting("fampay_upi", "").strip()
 
-        # 1. Primary: FamGateway QR (API Key ke saath)
         if base_url:
-            qr_url = f"{base_url}/api/qr.php?api_key={api_key}&am={amount}&note=Pay_{call.from_user.id}"
-        # 2. Fallback: Direct UPI QR
+            if api_key:
+                qr_url = f"{base_url}/api/qr.php?api_key={api_key}&am={amount}&note=Pay_{call.from_user.id}"
+            else:
+                qr_url = f"{base_url}/api/qr.php?am={amount}&note=Pay_{call.from_user.id}"
         elif fampay_upi:
             upi_link = f"upi://pay?pa={fampay_upi}&pn=Payment&am={amount}&cu=INR"
             qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={upi_link}"
@@ -3066,19 +3067,18 @@ async def handle_pay_upi(call: CallbackQuery):
                     await call.message.answer_photo(
                         photo=photo_file,
                         caption=f"👇 **₹{amount}** ka payment karne ke liye is QR code ko scan karein."
-                                    else:
+                    )
+                else:
                     err_text = await resp.text()
                     await call.message.answer(f"❌ Gateway Error ({resp.status})\nDetails: `{err_text}`")
-
 
     except Exception as e:
         await call.message.answer(f"❌ QR Error: {str(e)}")
 
-
-
 @dp.callback_query(F.data.startswith("order_binance_"))
 async def handle_pay_binance(call: CallbackQuery):
-    await call.answer("Binance Pay selected!", show_alert=True)
+            await call.answer("Binance Pay selected!", show_alert=True)
+
 
 if __name__ == "__main__":
     try:
