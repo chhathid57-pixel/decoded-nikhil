@@ -3036,7 +3036,7 @@ async def send_order_summary(event, product_name="12 Hours", price=40.0, user_ba
 @dp.callback_query(F.data.startswith("order_wallet_"))
 async def handle_pay_wallet(call: CallbackQuery):
     await call.answer("Wallet balance check ho raha hai...", show_alert=True)
-@dp.callback_query(F.data.startswith("order_upi_"))
+@@dp.callback_query(F.data.startswith("order_upi_"))
 async def handle_pay_upi(call: CallbackQuery):
     try:
         amount = int(float(call.data.split("_")[2]))
@@ -3057,8 +3057,8 @@ async def handle_pay_upi(call: CallbackQuery):
                         d = res_json.get("data", {})
                         checkout_url = d.get("checkout_url")
                         payable_amount = d.get("payable_amount", amount)
+                        order_id = d.get("order_id", "123")
 
-                                                order_id = d.get("order_id", "123")
                         keyboard = InlineKeyboardMarkup(
                             inline_keyboard=[
                                 [InlineKeyboardButton(text=f"💳 Pay ₹{payable_amount} (Auto Redirects)", url=checkout_url)],
@@ -3067,18 +3067,17 @@ async def handle_pay_upi(call: CallbackQuery):
                             ]
                         )
 
-
                         await call.message.answer(
-                            f"👇 **₹{payable_amount}** ka payment karne ke liye niche diye gaye button par click karein:",
+                            f"📥 **{payable_amount}** ka payment karne ke liye niche diye gaye button par click karein:",
                             reply_markup=keyboard
                         )
                     else:
                         await call.message.answer(f"❌ FamGateway Error: {res_json.get('message', 'Invalid response')}")
                 else:
                     await call.message.answer(f"❌ API Request Failed ({resp.status})")
-
     except Exception as e:
         await call.message.answer(f"❌ Error: {str(e)}")
+
 @dp.callback_query(F.data.startswith("check_pay_"))
 async def handle_manual_verify(call: CallbackQuery):
     try:
