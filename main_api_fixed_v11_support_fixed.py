@@ -2880,7 +2880,7 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
     except ValueError:
         clean_product_id = product_id
 
-        payload = {
+    payload = {
         "product_id": clean_product_id,
         "variant_id": clean_product_id,
         "duration": duration,
