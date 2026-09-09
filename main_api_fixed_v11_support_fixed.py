@@ -1369,8 +1369,9 @@ async def process_buy(call: CallbackQuery):
             # errors (auth/server/network), stop immediately to avoid duplicate buys.
             error_blob = json.dumps(api_response, ensure_ascii=False).lower()
             if "price not found" not in error_blob and "price_not_found" not in error_blob:
-
+ 
      if api_response.get("status") != "success":
+        # Refund user if API fails
         db_query("UPDATE users SET balance=balance+? WHERE user_id=?", (final_price, call.from_user.id))
         error_msg = api_response.get("msg", "Unknown API error")
         safe_err_msg = html.escape(str(error_msg))
@@ -1386,6 +1387,7 @@ async def process_buy(call: CallbackQuery):
             logger.exception("Could not edit message: %s", tg_error)
             
         return
+
 
 
 
