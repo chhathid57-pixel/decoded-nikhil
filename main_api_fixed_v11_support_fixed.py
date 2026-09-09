@@ -2869,40 +2869,6 @@ def normalize_api_duration(duration: str) -> str:
 import re
 import logging
 
-def find_key_in_json(data):
-    if isinstance(data, str):
-        cleaned = data.strip()
-        if len(cleaned) >= 4 and not cleaned.startswith("{") and not cleaned.startswith("["):
-            return cleaned
-        return None
-    
-    if isinstance(data, list):
-        for item in data:
-            res = find_key_in_json(item)
-            if res:
-                return res
-        return None
-        
-    if isinstance(data, dict):
-        for target_field in ["key", "license_key", "license", "code", "key_code", "serial", "token"]:
-            if target_field in data and data[target_field]:
-                val = data[target_field]
-                if isinstance(val, (str, int)):
-                    return str(val).strip()
-                res = find_key_in_json(val)
-                if res:
-                    return res
-        for target_field in ["data", "result", "response", "keys", "item", "order"]:
-            if target_field in data and data[target_field]:
-                res = find_key_in_json(data[target_field])
-                if res:
-                    return res
-        for val in data.values():
-            res = find_key_in_json(val)
-            if res:
-                return res
-    return None
-
 async def fetch_external_key(product_id: str, duration: str, android_id: str = "") -> dict:
     base_url = "https://bingomodsshop-production.up.railway.app/api/v1"
     token = "bkey_KkQLzwp2yv8GrLMYXuVVzkEGxFUjSRuuwDMJMXjqa1w"
@@ -2978,21 +2944,20 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
             async with session.post(f"{base_url}/generate-key", json=payload, headers=headers) as response:
                 try:
                     res_json = await response.json()
-                    logging.info(f"API RESPONSE JSON: {res_json}")
-                    print(f"API RESPONSE JSON: {res_json}", flush=True)
                 except Exception:
                     res_text = await response.text()
-                    logging.info(f"API RESPONSE TEXT: {res_text}")
-                    print(f"API RESPONSE TEXT: {res_text}", flush=True)
-                    extracted_key = find_key_in_json(res_text)
-                    if extracted_key:
-                        return {"status": "success", "key": extracted_key}
-                    return {"status": "error", "msg": f"Non-JSON: {res_text[:100]}"}
+                    return {"status": "error", "msg": f"Non-JSON response: {res_text[:100]}"}
 
                 if response.status in (200, 201):
-                    extracted_key = find_key_in_json(res_json)
-                    if extracted_key:
-                        return {"status": "success", "key": str(extracted_key)}
+                    # 1. Direct check for 'keys' list returned by API
+                    keys_list = res_json.get("keys", [])
+                    if isinstance(keys_list, list) and len(keys_list) > 0:
+                        return {"status": "success", "key": str(keys_list[0]).strip()}
+                    
+                    # 2. Fallback check for single key
+                    single_key = res_json.get("key") or res_json.get("license_key") or res_json.get("code")
+                    if single_key:
+                        return {"status": "success", "key": str(single_key).strip()}
                 
                 err_msg = res_json.get("message") or res_json.get("error") or res_json.get("msg") or f"HTTP {response.status}"
                 return {"status": "error", "msg": err_msg}
