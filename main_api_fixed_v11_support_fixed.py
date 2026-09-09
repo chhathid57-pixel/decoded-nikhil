@@ -2868,6 +2868,31 @@ def normalize_api_duration(duration: str) -> str:
 
 import re
 
+def extract_key_from_json(obj):
+    if isinstance(obj, str) and len(obj.strip()) > 3:
+        return obj.strip()
+    if isinstance(obj, list) and obj:
+        for item in obj:
+            found = extract_key_from_json(item)
+            if found:
+                return found
+    if isinstance(obj, dict):
+        for k in ["key", "license_key", "license", "code", "key_code", "serial", "token"]:
+            if k in obj and obj[k]:
+                found = extract_key_from_json(obj[k])
+                if found:
+                    return found
+        for k in ["keys", "data", "result", "response"]:
+            if k in obj and obj[k]:
+                found = extract_key_from_json(obj[k])
+                if found:
+                    return found
+        for v in obj.values():
+            found = extract_key_from_json(v)
+            if found:
+                return found
+    return None
+
 async def fetch_external_key(product_id: str, duration: str, android_id: str = "") -> dict:
     base_url = "https://bingomodsshop-production.up.railway.app/api/v1"
     token = "bkey_KkQLzwp2yv8GrLMYXuVVzkEGxFUjSRuuwDMJMXjqa1w"
@@ -2892,7 +2917,6 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
                         if p_id == str(product_id):
                             variants = item.get("variants", [])
                             
-                            # 1. संख्या (12) और समय प्रकार (Hour/Day) की सटीक मैचिंग
                             for var in variants:
                                 var_id = str(var.get("id") or var.get("variant_id") or "")
                                 v_dur = str(var.get("duration", "")).lower()
@@ -2912,7 +2936,6 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
                                         target_variant_id = var_id
                                         break
 
-                            # 2. बैकअप: केवल संख्या (12) मैच करके वेरिएंट चुनना
                             if not target_variant_id:
                                 for var in variants:
                                     var_id = str(var.get("id") or var.get("variant_id") or "")
@@ -2921,7 +2944,6 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
                                         target_variant_id = var_id
                                         break
 
-                            # 3. यदि कोई मैच न हो तो पहला Variant ID चुनें (Product ID कभी न चुनें)
                             if not target_variant_id and variants:
                                 target_variant_id = str(variants[0].get("id") or variants[0].get("variant_id") or "")
                                 
@@ -2951,15 +2973,7 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
                     return {"status": "error", "msg": f"Non-JSON: {res_text[:100]}"}
 
                 if response.status in (200, 201):
-                    extracted_key = (
-                        res_json.get("key") or
-                        res_json.get("license_key") or
-                        (res_json.get("keys", [None])[0] if isinstance(res_json.get("keys"), list) else None)
-                    )
-                    if not extracted_key and isinstance(res_json.get("data"), dict):
-                        data_obj = res_json["data"]
-                        extracted_key = data_obj.get("key") or data_obj.get("license_key") or data_obj.get("code")
-                    
+                    extracted_key = extract_key_from_json(res_json)
                     if extracted_key:
                         return {"status": "success", "key": str(extracted_key)}
                 
