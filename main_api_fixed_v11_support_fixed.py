@@ -2867,31 +2867,28 @@ def normalize_api_duration(duration: str) -> str:
     return value
 
 async def fetch_external_key(product_id: str, duration: str, android_id: str = "") -> dict:
-    """Fetch variants dynamically and buy key using the correct variant ID."""
     base_url = "https://bingomodsshop-production.up.railway.app/api/v1"
     token = "bkey_KkQLzwp2yv8GrLMYXuVVzkEGxFUjSRuuwDMJMXjqa1w"
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json", "Content-Type": "application/json"}
 
+    target_variant_id = product_id
     async with aiohttp.ClientSession() as session:
-        target_variant_id = product_id
-        async with session.get(f"{base_url}/products", headers=headers) as resp:
-            if resp.status == 200:
-                try:
+        try:
+            async with session.get(f"{base_url}/products", headers=headers) as resp:
+                if resp.status == 200:
                     data = await resp.json()
                     items = data if isinstance(data, list) else data.get("products", data.get("data", []))
                     for item in items:
                         p_id = str(item.get("id") or item.get("product_id") or "")
                         if p_id == str(product_id):
-                            variants = item.get("variants", [])
-                            for var in variants:
+                            for var in item.get("variants", []):
                                 var_dur = str(var.get("duration", "")).lower()
                                 if "12" in duration.lower() and ("12" in var_dur or "hour" in var_dur):
                                     target_variant_id = var.get("id") or var.get("variant_id")
                                     break
-                            if target_variant_id != product_id:
-                                break
-                except Exception:
-                    pass
+                            break
+        except Exception:
+            pass
 
         try:
             clean_variant_id = int(target_variant_id)
@@ -2903,36 +2900,31 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
             "quantity": 1
         }
 
-        endpoint_url = f"{base_url}/generate-key"
-        async with session.post(endpoint_url, json=payload, headers=headers) as response:
-            try:
-                res_json = await response.json()
-            except Exception:
-                res_text = await response.text()
-                return {"status": "error", "msg": f"Non-JSON: {res_text[:100]}"}
+        try:
+            async with session.post(f"{base_url}/generate-key", json=payload, headers=headers) as response:
+                try:
+                    res_json = await response.json()
+                except Exception:
+                    res_text = await response.text()
+                    return {"status": "error", "msg": f"Non-JSON: {res_text[:100]}"}
 
-            if response.status in (200, 201):
-                extracted_key = (
-                    res_json.get("key") or
-                    res_json.get("license_key") or
-                    (res_json.get("keys", [None])[0] if isinstance(res_json.get("keys"), list) else None)
-                )
-                if not extracted_key and isinstance(res_json.get("data"), dict):
-                    data_obj = res_json["data"]
-                    extracted_key = data_obj.get("key") or data_obj.get("license_key") or data_obj.get("code")
+                if response.status in (200, 201):
+                    extracted_key = (
+                        res_json.get("key") or
+                        res_json.get("license_key") or
+                        (res_json.get("keys", [None])[0] if isinstance(res_json.get("keys"), list) else None)
+                    )
+                    if not extracted_key and isinstance(res_json.get("data"), dict):
+                        data_obj = res_json["data"]
+                        extracted_key = data_obj.get("key") or data_obj.get("license_key") or data_obj.get("code")
+                    
+                    if extracted_key:
+                        return {"status": "success", "key": str(extracted_key)}
                 
-                if extracted_key:
-                    return {"status": "success", "key": str(extracted_key)}
-            
-            error_msg = res_json.get("error") or res_json.get("msg") or str(res_json)
-            return {"status": "error", "msg": error_msg}
-
-                    err_msg = res_json.get("message") or res_json.get("error") or res_json.get("detail") or f"HTTP {response.status}"
-                    return {"status": "error", "msg": str(err_msg)}
-
-    except Exception as e:
-        return {"status": "error", "msg": f"Request Failed: {str(e)}"}
-
+                err_msg = res_json.get("message") or res_json.get("error") or res_json.get("msg") or f"HTTP {response.status}"
+                return {"status": "error", "msg": err_msg}
+        except Exception as e:
+            return {"status": "error", "msg": f"Request failed: {e}"}
 
 
 async def admin_setup_external_api(call: CallbackQuery, state: FSMContext):
