@@ -2876,16 +2876,15 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
         return {"status": "error", "msg": "External API Product ID is empty"}
 
     try:
-        variant_id = int(product_id)
+        clean_product_id = int(product_id)
     except ValueError:
-        variant_id = product_id
+        clean_product_id = product_id
 
     payload = {
-    "variant_id": variant_id,
-    "duration": duration,
-    "quantity": 1
-}
-
+        "product_id": clean_product_id,
+        "duration": duration,
+        "quantity": 1
+    }
 
     headers = {
         "Authorization": f"Bearer {token}",
@@ -2908,11 +2907,10 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
                     extracted_key = None
                     if isinstance(res_json, dict):
                         extracted_key = (
-                            res_json.get("key") or 
-                            res_json.get("license_key") or 
-                            res_json.get("code") or 
-                            res_json.get("serial")
+                            res_json.get("key") or
+                            res_json.get("license_key")
                         )
+
                         if not extracted_key and isinstance(res_json.get("keys"), list) and len(res_json["keys"]) > 0:
                             extracted_key = res_json["keys"][0]
                         if not extracted_key and isinstance(res_json.get("data"), dict):
