@@ -9,6 +9,7 @@ import urllib.parse
 import json
 import re
 import socket
+import html
 from datetime import datetime, timedelta
 from typing import Optional, List, Tuple, Dict, Any
 
