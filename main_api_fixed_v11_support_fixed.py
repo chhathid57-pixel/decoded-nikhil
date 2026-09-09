@@ -2873,10 +2873,12 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
     token = "bkey_KkQLzwp2yv8GrLMYXuVVzkEGxFUjSRuuwDMJMXjqa1w"
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json", "Content-Type": "application/json"}
 
-    target_variant_id = product_id
+    target_variant_id = None
     req_clean = str(duration).lower().strip()
-    # नाम, नंबर और घंटे के सभी शब्दों (Tokens) को अलग-अलग निकालना
-    req_words = [w for w in re.findall(r'\w+', req_clean) if len(w) > 0]
+    req_digits = "".join(re.findall(r'\d+', req_clean))
+    
+    is_hour = any(u in req_clean for u in ["hour", "hr", "h"])
+    is_day = any(u in req_clean for u in ["day", "d"])
 
     async with aiohttp.ClientSession() as session:
         try:
@@ -2887,36 +2889,48 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
                     
                     for item in items:
                         p_id = str(item.get("id") or item.get("product_id") or "")
-                        # 1. Product ID मैच करना
                         if p_id == str(product_id):
                             variants = item.get("variants", [])
-                            best_match_id = None
-                            max_matched_tokens = -1
                             
+                            # 1. संख्या (12) और समय प्रकार (Hour/Day) की सटीक मैचिंग
                             for var in variants:
                                 var_id = str(var.get("id") or var.get("variant_id") or "")
                                 v_dur = str(var.get("duration", "")).lower()
                                 v_name = str(var.get("name", "")).lower()
                                 v_title = str(var.get("title", "")).lower()
-                                # वेरिएंट का पूरा टेक्स्ट (Name + Title + Duration)
-                                combined_text = f"{v_name} {v_title} {v_dur}"
-                                
-                                # 2. नेम, नंबर और हावर शब्द कितने मैच हुए
-                                match_count = sum(1 for word in req_words if word in combined_text)
-                                
-                                # अगर सारे शब्द (नाम, नंबर, घंटे) 100% मैच हो गए
-                                if match_count == len(req_words):
-                                    best_match_id = var_id
-                                    break
-                                elif match_count > max_matched_tokens and match_count > 0:
-                                    max_matched_tokens = match_count
-                                    best_match_id = var_id
+                                combined = f"{v_name} {v_title} {v_dur}"
+                                v_digits = "".join(re.findall(r'\d+', combined))
 
-                            if best_match_id:
-                                target_variant_id = best_match_id
+                                if req_digits and req_digits in v_digits:
+                                    if is_hour and any(u in combined for u in ["hour", "hr", "h"]):
+                                        target_variant_id = var_id
+                                        break
+                                    elif is_day and any(u in combined for u in ["day", "d"]):
+                                        target_variant_id = var_id
+                                        break
+                                    elif not is_hour and not is_day:
+                                        target_variant_id = var_id
+                                        break
+
+                            # 2. बैकअप: केवल संख्या (12) मैच करके वेरिएंट चुनना
+                            if not target_variant_id:
+                                for var in variants:
+                                    var_id = str(var.get("id") or var.get("variant_id") or "")
+                                    combined = f"{var.get('name', '')} {var.get('title', '')} {var.get('duration', '')}".lower()
+                                    if req_digits and req_digits in "".join(re.findall(r'\d+', combined)):
+                                        target_variant_id = var_id
+                                        break
+
+                            # 3. यदि कोई मैच न हो तो पहला Variant ID चुनें (Product ID कभी न चुनें)
+                            if not target_variant_id and variants:
+                                target_variant_id = str(variants[0].get("id") or variants[0].get("variant_id") or "")
+                                
                             break
         except Exception:
             pass
+
+        if not target_variant_id:
+            target_variant_id = product_id
 
         try:
             clean_variant_id = int(target_variant_id)
@@ -2953,7 +2967,6 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
                 return {"status": "error", "msg": err_msg}
         except Exception as e:
             return {"status": "error", "msg": f"Request failed: {e}"}
-
 
 async def admin_setup_external_api(call: CallbackQuery, state: FSMContext):
     if not is_admin(call.from_user.id):
