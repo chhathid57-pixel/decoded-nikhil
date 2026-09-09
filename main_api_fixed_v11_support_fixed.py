@@ -2866,12 +2866,17 @@ def normalize_api_duration(duration: str) -> str:
     # Return as-is if nothing matches (fallback)
     return value
 
+import re
+
 async def fetch_external_key(product_id: str, duration: str, android_id: str = "") -> dict:
     base_url = "https://bingomodsshop-production.up.railway.app/api/v1"
     token = "bkey_KkQLzwp2yv8GrLMYXuVVzkEGxFUjSRuuwDMJMXjqa1w"
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json", "Content-Type": "application/json"}
 
-    target_variant_id = product_id
+    target_variant_id = product_id  # Fallback if variant not found
+    req_clean = str(duration).lower().strip()
+    req_digits = "".join(re.findall(r'\d+', req_clean))
+
     async with aiohttp.ClientSession() as session:
         try:
             async with session.get(f"{base_url}/products", headers=headers) as resp:
@@ -2881,11 +2886,26 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
                     for item in items:
                         p_id = str(item.get("id") or item.get("product_id") or "")
                         if p_id == str(product_id):
-                            for var in item.get("variants", []):
-                                var_dur = str(var.get("duration", "")).lower()
-                                if "12" in duration.lower() and ("12" in var_dur or "hour" in var_dur):
-                                    target_variant_id = var.get("id") or var.get("variant_id")
-                                    break
+                            variants = item.get("variants", [])
+                            for var in variants:
+                                var_id = str(var.get("id") or var.get("variant_id") or "")
+                                v_dur = str(var.get("duration", "")).lower()
+                                v_name = str(var.get("name", "")).lower()
+                                v_title = str(var.get("title", "")).lower()
+                                combined_text = f"{v_dur} {v_name} {v_title}"
+                                
+                                # नाम या टेक्स्ट मैचिंग
+                                if req_clean in combined_text or any(word in combined_text for word in req_clean.split() if len(word) > 1):
+                                    if var_id:
+                                        target_variant_id = var_id
+                                        break
+                                # नंबर/घंटे मैचिंग (जैसे '12' या '24')
+                                if req_digits:
+                                    v_digits = "".join(re.findall(r'\d+', combined_text))
+                                    if req_digits in v_digits:
+                                        if var_id:
+                                            target_variant_id = var_id
+                                            break
                             break
         except Exception:
             pass
@@ -2925,7 +2945,6 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
                 return {"status": "error", "msg": err_msg}
         except Exception as e:
             return {"status": "error", "msg": f"Request failed: {e}"}
-
 
 async def admin_setup_external_api(call: CallbackQuery, state: FSMContext):
     if not is_admin(call.from_user.id):
