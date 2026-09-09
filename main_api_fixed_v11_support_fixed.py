@@ -2880,9 +2880,11 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
         variant_id = product_id
 
     payload = {
-        "variant_id": variant_id,
-        "quantity": 1
-    }
+    "variant_id": variant_id,
+    "duration": duration,
+    "quantity": 1
+}
+
 
     headers = {
         "Authorization": f"Bearer {token}",
