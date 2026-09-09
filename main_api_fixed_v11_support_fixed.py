@@ -566,8 +566,8 @@ class GlobalSecurityMiddleware(BaseMiddleware):
                 
         return await handler(event, data)
 
-dp.message.middleware(GlobalSecurityMiddleware())
-dp.callback_query.middleware(GlobalSecurityMiddleware())
+#dp.message.middleware(GlobalSecurityMiddleware())
+#dp.callback_query.middleware(GlobalSecurityMiddleware())
 
 # ==============================================================================
 # 6. FSM STATES
