@@ -1370,7 +1370,7 @@ async def process_buy(call: CallbackQuery):
             error_blob = json.dumps(api_response, ensure_ascii=False).lower()
             if "price not found" not in error_blob and "price_not_found" not in error_blob:
  
-         if api_response.get("status") != "success":
+            if api_response.get("status") != "success":
                 db_query("UPDATE users SET balance=balance+? WHERE user_id=?", (final_price, call.from_user.id))
                 error_msg = api_response.get("msg", "Unknown API error")
                 safe_err_msg = html.escape(str(error_msg))
