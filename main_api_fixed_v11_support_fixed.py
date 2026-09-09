@@ -25,7 +25,7 @@ from aiogram.types import (
 # ==============================================================================
 # 1. BOT CONFIGURATION & CONSTANTS
 # ==============================================================================
-BOT_TOKEN "8721360718:AAFXPi_cAfS9PJ9OcXvFlZD309hx1U8XOms"
+BOT_TOKEN = "8721360718:AAFXPi_cAfS9PJ9OcXvFlZD309hx1U8XOms"
 BOT_USERNAME = "@Dxcodxd_panel_bot"
 ADMIN_ID = 6452869652
 SECOND_ADMIN_ID = 8653176405
