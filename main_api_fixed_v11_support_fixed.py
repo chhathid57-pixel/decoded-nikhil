@@ -1364,18 +1364,19 @@ async def process_buy(call: CallbackQuery):
                 api_duration_used = api_duration
                 break
 
-            # A "price not found" response means this duration did not match the
-            # configured API price tier. Try the next safe candidate. For other
-            # errors (auth/server/network), stop immediately to avoid duplicate buys.
-            error_blob = json.dumps(api_response, ensure_ascii=False).lower()
-            if "price not found" not in error_blob and "price_not_found" not in error_blob:
- 
-            if api_response.get("status") != "success":
-                db_query("UPDATE users SET balance=balance+? WHERE user_id=?", (final_price, call.from_user.id))
-                error_msg = api_response.get("msg", "Unknown API error")
-                safe_err_msg = html.escape(str(error_msg))
-                error_text = f"API Error: {safe_err_msg}. Your balance has been refunded."
-        
+                # A "price not found" response means this duration did not match the
+    # configured API price tier. Try the next safe candidate. For other
+    # errors (auth/server/network), stop immediately to avoid duplicate buys.
+    error_blob = json.dumps(api_response, ensure_ascii=False).lower()
+    if "price not found" not in error_blob and "price_not_found" not in error_blob:
+        pass
+
+    if api_response.get("status") != "success":
+        db_query("UPDATE users SET balance=balance+? WHERE user_id=?", (final_price, call.from_user.id))
+        error_msg = api_response.get("msg", "Unknown API error")
+        safe_err_msg = html.escape(str(error_msg))
+        error_text = f"API Error: {safe_err_msg}. Your balance has been refunded."
+
         try:
             await call.message.edit_text(
                 error_text,
