@@ -2867,72 +2867,66 @@ def normalize_api_duration(duration: str) -> str:
     return value
 
 async def fetch_external_key(product_id: str, duration: str, android_id: str = "") -> dict:
-    """Buy a key using direct hardcoded Railway API credentials with safe string formatting."""
-    endpoint_url = "https://bingomodsshop-production.up.railway.app/api/v1/generate-key"
+    """Fetch variants dynamically and buy key using the correct variant ID."""
+    base_url = "https://bingomodsshop-production.up.railway.app/api/v1"
     token = "bkey_KkQLzwp2yv8GrLMYXuVVzkEGxFUjSRuuwDMJMXjqa1w"
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json", "Content-Type": "application/json"}
 
-    product_id = str(product_id or "").strip()
-    if not product_id:
-        return {"status": "error", "msg": "External API Product ID is empty"}
-
-    try:
-        clean_product_id = int(product_id)
-    except ValueError:
-        clean_product_id = product_id
-
-    payload = {
-        "variant_id": clean_product_id,
-        "quantity": 1
-    }
-
-
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-    }
-
-    timeout = aiohttp.ClientTimeout(total=15, connect=5, sock_connect=5, sock_read=10)
-
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(endpoint_url, json=payload, headers=headers, timeout=timeout) as response:
+    async with aiohttp.ClientSession() as session:
+        target_variant_id = product_id
+        async with session.get(f"{base_url}/products", headers=headers) as resp:
+            if resp.status == 200:
                 try:
-                    res_json = await response.json()
+                    data = await resp.json()
+                    items = data if isinstance(data, list) else data.get("products", data.get("data", []))
+                    for item in items:
+                        p_id = str(item.get("id") or item.get("product_id") or "")
+                        if p_id == str(product_id):
+                            variants = item.get("variants", [])
+                            for var in variants:
+                                var_dur = str(var.get("duration", "")).lower()
+                                if "12" in duration.lower() and ("12" in var_dur or "hour" in var_dur):
+                                    target_variant_id = var.get("id") or var.get("variant_id")
+                                    break
+                            if target_variant_id != product_id:
+                                break
                 except Exception:
-                    res_text = await response.text()
-                    return {"status": "error", "msg": f"Server response non-JSON: {res_text[:100]}"}
+                    pass
 
-                if response.status in (200, 201):
-                    extracted_key = None
-                    if isinstance(res_json, dict):
-                        extracted_key = (
-                            res_json.get("key") or
-                            res_json.get("license_key")
-                        )
+        try:
+            clean_variant_id = int(target_variant_id)
+        except ValueError:
+            clean_variant_id = target_variant_id
 
-                        if not extracted_key and isinstance(res_json.get("keys"), list) and len(res_json["keys"]) > 0:
-                            extracted_key = res_json["keys"][0]
-                        if not extracted_key and isinstance(res_json.get("data"), dict):
-                            data_obj = res_json["data"]
-                            extracted_key = data_obj.get("key") or data_obj.get("license_key") or data_obj.get("code")
+        payload = {
+            "variant_id": clean_variant_id,
+            "quantity": 1
+        }
 
-                    # Fallback to string representation if key is missing
-                    if not extracted_key:
-                        extracted_key = str(res_json)
+        endpoint_url = f"{base_url}/generate-key"
+        async with session.post(endpoint_url, json=payload, headers=headers) as response:
+            try:
+                res_json = await response.json()
+            except Exception:
+                res_text = await response.text()
+                return {"status": "error", "msg": f"Non-JSON: {res_text[:100]}"}
 
-                    # Clean up string to prevent Telegram HTML parse crashes
-                    clean_key = str(extracted_key).strip().replace("<", "").replace(">", "")
+            if response.status in (200, 201):
+                extracted_key = (
+                    res_json.get("key") or
+                    res_json.get("license_key") or
+                    (res_json.get("keys", [None])[0] if isinstance(res_json.get("keys"), list) else None)
+                )
+                if not extracted_key and isinstance(res_json.get("data"), dict):
+                    data_obj = res_json["data"]
+                    extracted_key = data_obj.get("key") or data_obj.get("license_key") or data_obj.get("code")
+                
+                if extracted_key:
+                    return {"status": "success", "key": str(extracted_key)}
+            
+            error_msg = res_json.get("error") or res_json.get("msg") or str(res_json)
+            return {"status": "error", "msg": error_msg}
 
-                    return {
-                        "status": "success",
-                        "success": True,
-                        "key": clean_key,
-                        "license_key": clean_key,
-                        "msg": clean_key,
-                        "data": res_json
-                    }
-                else:
                     err_msg = res_json.get("message") or res_json.get("error") or res_json.get("detail") or f"HTTP {response.status}"
                     return {"status": "error", "msg": str(err_msg)}
 
