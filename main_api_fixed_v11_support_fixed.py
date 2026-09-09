@@ -1370,30 +1370,23 @@ async def process_buy(call: CallbackQuery):
             error_blob = json.dumps(api_response, ensure_ascii=False).lower()
             if "price not found" not in error_blob and "price_not_found" not in error_blob:
 
-            if api_response.get("status") != "success":
+         if api_response.get("status") != "success":
         db_query("UPDATE users SET balance=balance+? WHERE user_id=?", (final_price, call.from_user.id))
         error_msg = api_response.get("msg", "Unknown API error")
         safe_err_msg = html.escape(str(error_msg))
         error_text = f"❌ <b>API Error:</b>\n{safe_err_msg}\n\n💰 Your balance has been refunded."
         
-        await call.message.edit_text(
-            error_text,
-            reply_markup=back_kb("menu_shop"),
-            parse_mode="HTML"
-        )
- 
+        try:
+            await call.message.edit_text(
+                error_text,
+                reply_markup=back_kb("menu_shop"),
+                parse_mode="HTML"
+            )
         except Exception as tg_error:
-            logger.exception("Could not edit purchase message after API failure: %s", tg_error)
-            try:
-                await bot.send_message(
-                    call.from_user.id,
-                    error_text,
-                    reply_markup=back_kb("menu_shop"),
-                    parse_mode="HTML"
-                )
-            except Exception:
-                logger.exception("Could not send API failure message to user")
+            logger.exception("Could not edit message: %s", tg_error)
+            
         return
+
 
         delivered_key = api_response.get("key")
         if isinstance(delivered_key, list):
