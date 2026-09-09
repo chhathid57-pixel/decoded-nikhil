@@ -1370,12 +1370,11 @@ async def process_buy(call: CallbackQuery):
             error_blob = json.dumps(api_response, ensure_ascii=False).lower()
             if "price not found" not in error_blob and "price_not_found" not in error_blob:
  
-     if api_response.get("status") != "success":
-        # Refund user if API fails
-        db_query("UPDATE users SET balance=balance+? WHERE user_id=?", (final_price, call.from_user.id))
-        error_msg = api_response.get("msg", "Unknown API error")
-        safe_err_msg = html.escape(str(error_msg))
-        error_text = f"❌ <b>API Error:</b>\n{safe_err_msg}\n\n💰 Your balance has been refunded."
+         if api_response.get("status") != "success":
+                db_query("UPDATE users SET balance=balance+? WHERE user_id=?", (final_price, call.from_user.id))
+                error_msg = api_response.get("msg", "Unknown API error")
+                safe_err_msg = html.escape(str(error_msg))
+                error_text = f"API Error: {safe_err_msg}. Your balance has been refunded."
         
         try:
             await call.message.edit_text(
