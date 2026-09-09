@@ -2867,30 +2867,40 @@ def normalize_api_duration(duration: str) -> str:
     return value
 
 import re
+import logging
 
-def extract_key_from_json(obj):
-    if isinstance(obj, str) and len(obj.strip()) > 3:
-        return obj.strip()
-    if isinstance(obj, list) and obj:
-        for item in obj:
-            found = extract_key_from_json(item)
-            if found:
-                return found
-    if isinstance(obj, dict):
-        for k in ["key", "license_key", "license", "code", "key_code", "serial", "token"]:
-            if k in obj and obj[k]:
-                found = extract_key_from_json(obj[k])
-                if found:
-                    return found
-        for k in ["keys", "data", "result", "response"]:
-            if k in obj and obj[k]:
-                found = extract_key_from_json(obj[k])
-                if found:
-                    return found
-        for v in obj.values():
-            found = extract_key_from_json(v)
-            if found:
-                return found
+def find_key_in_json(data):
+    if isinstance(data, str):
+        cleaned = data.strip()
+        if len(cleaned) >= 4 and not cleaned.startswith("{") and not cleaned.startswith("["):
+            return cleaned
+        return None
+    
+    if isinstance(data, list):
+        for item in data:
+            res = find_key_in_json(item)
+            if res:
+                return res
+        return None
+        
+    if isinstance(data, dict):
+        for target_field in ["key", "license_key", "license", "code", "key_code", "serial", "token"]:
+            if target_field in data and data[target_field]:
+                val = data[target_field]
+                if isinstance(val, (str, int)):
+                    return str(val).strip()
+                res = find_key_in_json(val)
+                if res:
+                    return res
+        for target_field in ["data", "result", "response", "keys", "item", "order"]:
+            if target_field in data and data[target_field]:
+                res = find_key_in_json(data[target_field])
+                if res:
+                    return res
+        for val in data.values():
+            res = find_key_in_json(val)
+            if res:
+                return res
     return None
 
 async def fetch_external_key(product_id: str, duration: str, android_id: str = "") -> dict:
@@ -2948,8 +2958,8 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
                                 target_variant_id = str(variants[0].get("id") or variants[0].get("variant_id") or "")
                                 
                             break
-        except Exception:
-            pass
+        except Exception as e:
+            logging.error(f"Error fetching products: {e}")
 
         if not target_variant_id:
             target_variant_id = product_id
@@ -2968,12 +2978,19 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
             async with session.post(f"{base_url}/generate-key", json=payload, headers=headers) as response:
                 try:
                     res_json = await response.json()
+                    logging.info(f"API RESPONSE JSON: {res_json}")
+                    print(f"API RESPONSE JSON: {res_json}", flush=True)
                 except Exception:
                     res_text = await response.text()
+                    logging.info(f"API RESPONSE TEXT: {res_text}")
+                    print(f"API RESPONSE TEXT: {res_text}", flush=True)
+                    extracted_key = find_key_in_json(res_text)
+                    if extracted_key:
+                        return {"status": "success", "key": extracted_key}
                     return {"status": "error", "msg": f"Non-JSON: {res_text[:100]}"}
 
                 if response.status in (200, 201):
-                    extracted_key = extract_key_from_json(res_json)
+                    extracted_key = find_key_in_json(res_json)
                     if extracted_key:
                         return {"status": "success", "key": str(extracted_key)}
                 
