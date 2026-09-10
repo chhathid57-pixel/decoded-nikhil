@@ -2871,133 +2871,141 @@ import logging
 import aiohttp
 
 async def fetch_external_key(product_id: str, duration: str, android_id: str = "") -> dict:
-    base_url = "https://bingomodsshop-production.up.railway.app/api/v1"
-    token = "bkey_KkQLzwp2yv8GrLMYXuVVzkEGxFUjSRuuwDMJMXjqa1w"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/json",
-        "Content-Type": "application/json"
-    }
+    """
+    Fail-Safe External API Key Fetcher.
+    Guarantees a Python dict return in ALL cases (never returns None).
+    """
+    try:
+        base_url = "https://bingomodsshop-production.up.railway.app/api/v1"
+        token = "bkey_KkQLzwp2yv8GrLMYXuVVzkEGxFUjSRuuwDMJMXjqa1w"
+        
+        # यदि API टूल या URL सेटअप नहीं है तो सुरक्षित एरर डिक्शनरी लौटाएं
+        if not base_url or not token:
+            return {"status": "error", "msg": "API credentials not configured"}
 
-    target_variant_id = None
-    req_clean = str(duration).lower().strip()
-    req_digits = "".join(re.findall(r'\d+', req_clean))
-    
-    is_hour = any(u in req_clean for u in ["hour", "hr", "h"])
-    is_day = any(u in req_clean for u in ["day", "d"])
-
-    async with aiohttp.ClientSession() as session:
-        try:
-            async with session.get(f"{base_url}/products", headers=headers) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    items = data if isinstance(data, list) else data.get("products", data.get("data", []))
-                    
-                    for item in items:
-                        p_id = str(item.get("id") or item.get("product_id") or "")
-                        if p_id == str(product_id):
-                            variants = item.get("variants", [])
-                            for var in variants:
-                                var_id = str(var.get("id") or var.get("variant_id") or "")
-                                combined = f"{var.get('name', '')} {var.get('title', '')} {var.get('duration', '')}".lower()
-                                v_digits = "".join(re.findall(r'\d+', combined))
-
-                                if req_digits and req_digits in v_digits:
-                                    if is_hour and any(u in combined for u in ["hour", "hr", "h"]):
-                                        target_variant_id = var_id
-                                        break
-                                    elif is_day and any(u in combined for u in ["day", "d"]):
-                                        target_variant_id = var_id
-                                        break
-                                    elif not is_hour and not is_day:
-                                        target_variant_id = var_id
-                                        break
-
-                            if not target_variant_id and variants:
-                                target_variant_id = str(variants[0].get("id") or variants[0].get("variant_id") or "")
-                            break
-        except Exception as e:
-            logging.error(f"Error fetching products: {e}")
-
-        if not target_variant_id:
-            target_variant_id = product_id
-
-        try:
-            clean_variant_id = int(target_variant_id)
-        except ValueError:
-            clean_variant_id = target_variant_id
-
-        payload = {
-            "variant_id": clean_variant_id,
-            "quantity": 1
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json",
+            "Content-Type": "application/json"
         }
 
-        try:
-            async with session.post(f"{base_url}/generate-key", json=payload, headers=headers) as response:
-                try:
-                    res_json = await response.json()
-                except Exception:
-                    res_text = await response.text()
-                    logging.error(f"Non-JSON API response: {res_text}")
-                    return {"status": "error", "msg": "Non-JSON response"}
+        target_variant_id = None
+        req_clean = str(duration).lower().strip()
+        req_digits = "".join(re.findall(r'\d+', req_clean))
+        
+        is_hour = any(u in req_clean for u in ["hour", "hr", "h"])
+        is_day = any(u in req_clean for u in ["day", "d"])
 
-                logging.info(f"API RESPONSE JSON: {res_json}")
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.get(f"{base_url}/products", headers=headers) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        items = data if isinstance(data, list) else data.get("products", data.get("data", []))
+                        
+                        for item in items:
+                            p_id = str(item.get("id") or item.get("product_id") or "")
+                            if p_id == str(product_id):
+                                variants = item.get("variants", [])
+                                for var in variants:
+                                    var_id = str(var.get("id") or var.get("variant_id") or "")
+                                    combined = f"{var.get('name', '')} {var.get('title', '')} {var.get('duration', '')}".lower()
+                                    v_digits = "".join(re.findall(r'\d+', combined))
 
-                extracted_key = None
-                if isinstance(res_json, dict):
-                    # 1. 'keys' लिस्ट या स्ट्रिंग चेक
-                    keys_arr = res_json.get("keys")
-                    if isinstance(keys_arr, list) and len(keys_arr) > 0:
-                        extracted_key = str(keys_arr[0]).strip()
-                    elif isinstance(keys_arr, str) and keys_arr.strip():
-                        extracted_key = keys_arr.strip()
+                                    if req_digits and req_digits in v_digits:
+                                        if is_hour and any(u in combined for u in ["hour", "hr", "h"]):
+                                            target_variant_id = var_id
+                                            break
+                                        elif is_day and any(u in combined for u in ["day", "d"]):
+                                            target_variant_id = var_id
+                                            break
+                                        elif not is_hour and not is_day:
+                                            target_variant_id = var_id
+                                            break
 
-                    # 2. अन्य कॉमन फ़ील्ड्स चेक
-                    if not extracted_key:
-                        for k in ["key", "license_key", "license", "code", "serial", "token", "data", "result"]:
-                            val = res_json.get(k)
-                            if val and isinstance(val, (str, int)) and str(val).lower() not in ["success", "true", "200", "ok"]:
-                                extracted_key = str(val).strip()
+                                if not target_variant_id and variants:
+                                    target_variant_id = str(variants[0].get("id") or variants[0].get("variant_id") or "")
                                 break
+            except Exception as e:
+                logging.error(f"Error fetching products from API: {e}")
 
-                    # 3. पूरे JSON में पहली वैध की स्ट्रिंग ढूंढना
-                    if not extracted_key:
-                        for v in res_json.values():
-                            if isinstance(v, str) and len(v) > 3 and v.lower() not in ["success", "true", "ok"]:
-                                extracted_key = v.strip()
-                                break
+            if not target_variant_id:
+                target_variant_id = product_id
 
-                if extracted_key:
-                    # हर संभव फ़ील्ड रिटर्न करें ताकि बॉट का कोई भी चेक मिस न हो
-                    return {
-                        "status": "success",
-                        "status_code": 200,
-                        "code": 200,
-                        "success": True,
-                        "ok": True,
-                        "key": extracted_key,
-                        "keys": [extracted_key],
-                        "license_key": extracted_key,
-                        "license": extracted_key,
-                        "serial": extracted_key,
-                        "code_key": extracted_key,
-                        "data": extracted_key,
-                        "result": extracted_key,
-                        "msg": "success",
-                        "message": "success"
-                    }
+            try:
+                clean_variant_id = int(target_variant_id)
+            except ValueError:
+                clean_variant_id = target_variant_id
 
-                err_msg = res_json.get("message") or res_json.get("error") or res_json.get("msg") or f"HTTP {response.status}"
-                return {"status": "error", "msg": err_msg}
+            payload = {
+                "variant_id": clean_variant_id,
+                "quantity": 1
+            }
 
-        except Exception as e:
-            logging.error(f"API generate key failed: {e}")
-            return {"status": "error", "msg": f"Request failed: {e}"}
+            try:
+                async with session.post(f"{base_url}/generate-key", json=payload, headers=headers) as response:
+                    try:
+                        res_json = await response.json()
+                    except Exception:
+                        res_text = await response.text()
+                        logging.error(f"Non-JSON API response: {res_text}")
+                        return {"status": "error", "msg": "Non-JSON response from API"}
 
+                    logging.info(f"API RESPONSE JSON: {res_json}")
 
-        except Exception as e:
-            logging.error(f"API generate key failed: {e}")
-            return {"status": "error", "msg": f"Request failed: {e}"}
+                    extracted_key = None
+                    if isinstance(res_json, dict):
+                        # 1. Check 'keys' array or string
+                        keys_arr = res_json.get("keys")
+                        if isinstance(keys_arr, list) and len(keys_arr) > 0:
+                            extracted_key = str(keys_arr[0]).strip()
+                        elif isinstance(keys_arr, str) and keys_arr.strip():
+                            extracted_key = keys_arr.strip()
+
+                        # 2. Check common key fields
+                        if not extracted_key:
+                            for k in ["key", "license_key", "license", "code", "serial", "token", "data", "result"]:
+                                val = res_json.get(k)
+                                if val and isinstance(val, (str, int)) and str(val).lower() not in ["success", "true", "200", "ok"]:
+                                    extracted_key = str(val).strip()
+                                    break
+
+                        # 3. Fallback scan for string values
+                        if not extracted_key:
+                            for v in res_json.values():
+                                if isinstance(v, str) and len(v) > 3 and v.lower() not in ["success", "true", "ok"]:
+                                    extracted_key = v.strip()
+                                    break
+
+                    if extracted_key:
+                        return {
+                            "status": "success",
+                            "status_code": 200,
+                            "code": 200,
+                            "success": True,
+                            "ok": True,
+                            "key": extracted_key,
+                            "keys": [extracted_key],
+                            "license_key": extracted_key,
+                            "license": extracted_key,
+                            "serial": extracted_key,
+                            "code_key": extracted_key,
+                            "data": extracted_key,
+                            "result": extracted_key,
+                            "msg": "success",
+                            "message": "success"
+                        }
+
+                    err_msg = res_json.get("message") or res_json.get("error") or res_json.get("msg") or f"HTTP {response.status}"
+                    return {"status": "error", "msg": str(err_msg)}
+
+            except Exception as req_err:
+                logging.error(f"API request exception: {req_err}")
+                return {"status": "error", "msg": f"API Request Failed: {req_err}"}
+
+    except Exception as main_e:
+        logging.error(f"Unhandled exception in fetch_external_key: {main_e}")
+        return {"status": "error", "msg": f"System Error: {main_e}"}
 
 async def admin_setup_external_api(call: CallbackQuery, state: FSMContext):
     if not is_admin(call.from_user.id):
