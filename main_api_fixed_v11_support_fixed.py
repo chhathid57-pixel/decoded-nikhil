@@ -2868,6 +2868,7 @@ def normalize_api_duration(duration: str) -> str:
 
 import re
 import logging
+import aiohttp
 
 async def fetch_external_key(product_id: str, duration: str, android_id: str = "") -> dict:
     base_url = "https://bingomodsshop-production.up.railway.app/api/v1"
@@ -2896,13 +2897,9 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
                         p_id = str(item.get("id") or item.get("product_id") or "")
                         if p_id == str(product_id):
                             variants = item.get("variants", [])
-                            
                             for var in variants:
                                 var_id = str(var.get("id") or var.get("variant_id") or "")
-                                v_dur = str(var.get("duration", "")).lower()
-                                v_name = str(var.get("name", "")).lower()
-                                v_title = str(var.get("title", "")).lower()
-                                combined = f"{v_name} {v_title} {v_dur}"
+                                combined = f"{var.get('name', '')} {var.get('title', '')} {var.get('duration', '')}".lower()
                                 v_digits = "".join(re.findall(r'\d+', combined))
 
                                 if req_digits and req_digits in v_digits:
@@ -2916,17 +2913,8 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
                                         target_variant_id = var_id
                                         break
 
-                            if not target_variant_id:
-                                for var in variants:
-                                    var_id = str(var.get("id") or var.get("variant_id") or "")
-                                    combined = f"{var.get('name', '')} {var.get('title', '')} {var.get('duration', '')}".lower()
-                                    if req_digits and req_digits in "".join(re.findall(r'\d+', combined)):
-                                        target_variant_id = var_id
-                                        break
-
                             if not target_variant_id and variants:
                                 target_variant_id = str(variants[0].get("id") or variants[0].get("variant_id") or "")
-                                
                             break
         except Exception as e:
             logging.error(f"Error fetching products: {e}")
@@ -2957,30 +2945,55 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
 
                 extracted_key = None
                 if isinstance(res_json, dict):
+                    # 1. 'keys' लिस्ट या स्ट्रिंग चेक
                     keys_arr = res_json.get("keys")
                     if isinstance(keys_arr, list) and len(keys_arr) > 0:
                         extracted_key = str(keys_arr[0]).strip()
                     elif isinstance(keys_arr, str) and keys_arr.strip():
                         extracted_key = keys_arr.strip()
 
+                    # 2. अन्य कॉमन फ़ील्ड्स चेक
                     if not extracted_key:
-                        for k in ["key", "license_key", "license", "code", "serial", "token"]:
+                        for k in ["key", "license_key", "license", "code", "serial", "token", "data", "result"]:
                             val = res_json.get(k)
                             if val and isinstance(val, (str, int)) and str(val).lower() not in ["success", "true", "200", "ok"]:
                                 extracted_key = str(val).strip()
                                 break
 
+                    # 3. पूरे JSON में पहली वैध की स्ट्रिंग ढूंढना
+                    if not extracted_key:
+                        for v in res_json.values():
+                            if isinstance(v, str) and len(v) > 3 and v.lower() not in ["success", "true", "ok"]:
+                                extracted_key = v.strip()
+                                break
+
                 if extracted_key:
+                    # हर संभव फ़ील्ड रिटर्न करें ताकि बॉट का कोई भी चेक मिस न हो
                     return {
                         "status": "success",
+                        "status_code": 200,
+                        "code": 200,
                         "success": True,
+                        "ok": True,
                         "key": extracted_key,
+                        "keys": [extracted_key],
                         "license_key": extracted_key,
-                        "code": extracted_key
+                        "license": extracted_key,
+                        "serial": extracted_key,
+                        "code_key": extracted_key,
+                        "data": extracted_key,
+                        "result": extracted_key,
+                        "msg": "success",
+                        "message": "success"
                     }
 
                 err_msg = res_json.get("message") or res_json.get("error") or res_json.get("msg") or f"HTTP {response.status}"
                 return {"status": "error", "msg": err_msg}
+
+        except Exception as e:
+            logging.error(f"API generate key failed: {e}")
+            return {"status": "error", "msg": f"Request failed: {e}"}
+
 
         except Exception as e:
             logging.error(f"API generate key failed: {e}")
