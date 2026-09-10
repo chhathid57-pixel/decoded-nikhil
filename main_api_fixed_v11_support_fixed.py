@@ -1335,7 +1335,7 @@ async def process_buy(call: CallbackQuery):
     db_query("UPDATE users SET balance=?, spent=spent+?, orders_count=orders_count+1, total_saved=total_saved+? WHERE user_id=?",
              (user[0] - final_price, final_price, savings, call.from_user.id))
 
-    if external_enabled:
+        if external_enabled:
         if not external_product_id:
             db_query("UPDATE users SET balance=balance+? WHERE user_id=?", (final_price, call.from_user.id))
             return await call.message.edit_text("❌ API product ID is not configured for this product.", reply_markup=back_kb("menu_shop"))
@@ -1393,6 +1393,7 @@ async def process_buy(call: CallbackQuery):
         delivered_key = str(delivered_key)
 
     else:
+
 
 
         key_data = db_query("SELECT id, key_text FROM product_keys WHERE product_id=? AND is_used=0 LIMIT 1", (prod_id,), fetchone=True)
