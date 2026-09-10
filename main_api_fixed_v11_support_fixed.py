@@ -1382,7 +1382,7 @@ async def process_buy(call: CallbackQuery):
 
             return
 
-                delivered_key = api_response.get("key")
+        delivered_key = api_response.get("key")
         if isinstance(delivered_key, list):
             delivered_key = "\n".join(str(x) for x in delivered_key)
         
