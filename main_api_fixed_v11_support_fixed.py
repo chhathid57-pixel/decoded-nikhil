@@ -2872,7 +2872,11 @@ import logging
 async def fetch_external_key(product_id: str, duration: str, android_id: str = "") -> dict:
     base_url = "https://bingomodsshop-production.up.railway.app/api/v1"
     token = "bkey_KkQLzwp2yv8GrLMYXuVVzkEGxFUjSRuuwDMJMXjqa1w"
-    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json", "Content-Type": "application/json"}
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+    }
 
     target_variant_id = None
     req_clean = str(duration).lower().strip()
@@ -2946,30 +2950,40 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
                     res_json = await response.json()
                 except Exception:
                     res_text = await response.text()
-                    return {"status": "error", "msg": f"Non-JSON response: {res_text[:100]}"}
+                    logging.error(f"Non-JSON API response: {res_text}")
+                    return {"status": "error", "msg": "Non-JSON response"}
 
                 logging.info(f"API RESPONSE JSON: {res_json}")
 
-                if response.status in (200, 201):
-                    extracted_key = None
-                    if isinstance(res_json, dict):
-                        keys_val = res_json.get("keys")
-                        if keys_val and isinstance(keys_val, list) and len(keys_val) > 0:
-                            extracted_key = str(keys_val[0]).strip()
-                        elif keys_val and isinstance(keys_val, str):
-                            extracted_key = keys_val.strip()
-                        else:
-                            for k in ["key", "license_key", "code", "license"]:
-                                if res_json.get(k):
-                                    extracted_key = str(res_json.get(k)).strip()
-                                    break
-                    
-                    if extracted_key:
-                        return {"status": "success", "key": extracted_key}
+                extracted_key = None
+                if isinstance(res_json, dict):
+                    keys_arr = res_json.get("keys")
+                    if isinstance(keys_arr, list) and len(keys_arr) > 0:
+                        extracted_key = str(keys_arr[0]).strip()
+                    elif isinstance(keys_arr, str) and keys_arr.strip():
+                        extracted_key = keys_arr.strip()
+
+                    if not extracted_key:
+                        for k in ["key", "license_key", "license", "code", "serial", "token"]:
+                            val = res_json.get(k)
+                            if val and isinstance(val, (str, int)) and str(val).lower() not in ["success", "true", "200", "ok"]:
+                                extracted_key = str(val).strip()
+                                break
+
+                if extracted_key:
+                    return {
+                        "status": "success",
+                        "success": True,
+                        "key": extracted_key,
+                        "license_key": extracted_key,
+                        "code": extracted_key
+                    }
 
                 err_msg = res_json.get("message") or res_json.get("error") or res_json.get("msg") or f"HTTP {response.status}"
                 return {"status": "error", "msg": err_msg}
+
         except Exception as e:
+            logging.error(f"API generate key failed: {e}")
             return {"status": "error", "msg": f"Request failed: {e}"}
 
 async def admin_setup_external_api(call: CallbackQuery, state: FSMContext):
