@@ -1393,17 +1393,19 @@ async def process_buy(call: CallbackQuery):
 
 
 
+            elif external_enabled:
         delivered_key = api_response.get("key")
         if isinstance(delivered_key, list):
             delivered_key = "\n".join(str(x) for x in delivered_key)
-        if delivered_key is None or str(delivered_key).strip() in ("", "KEY_NOT_FOUND"):
+        
+        if not delivered_key or str(delivered_key).strip() in ("", "None", "KEY_NOT_FOUND"):
             db_query("UPDATE users SET balance=balance+? WHERE user_id=?", (final_price, call.from_user.id))
-            return await call.message.edit_text("❌ API returned no key.\n\n💰 Your balance has been refunded.", reply_markup=back_kb("menu_shop"), parse_mode='HTML')
+            return await call.message.edit_text("❌ API returned no key.\n💰 Your balance has been refunded.")
+        
         delivered_key = str(delivered_key)
-        # External API products are not limited by local key-vault stock.
-        # Keep the admin-entered display stock unchanged so the product never
-        # becomes "Out of Stock" after a successful API purchase.
+
     else:
+
         key_data = db_query("SELECT id, key_text FROM product_keys WHERE product_id=? AND is_used=0 LIMIT 1", (prod_id,), fetchone=True)
         if not key_data:
             db_query("UPDATE users SET balance=balance+? WHERE user_id=?", (final_price, call.from_user.id))
