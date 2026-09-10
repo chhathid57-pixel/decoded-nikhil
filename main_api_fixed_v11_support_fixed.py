@@ -1338,12 +1338,8 @@ async def process_buy(call: CallbackQuery):
     if external_enabled:
         if not external_product_id:
             db_query("UPDATE users SET balance=balance+? WHERE user_id=?", (final_price, call.from_user.id))
-            return await call.message.edit_text("❌ API product ID is not configured for this product.", reply_markup=back_kb("menu_shop"), parse_mode='HTML')
+            return await call.message.edit_text("❌ API product ID is not configured for this product.", reply_markup=back_kb("menu_shop"))
 
-        # IMPORTANT: use the API-specific duration first. For older products,
-        # fall back to the saved validity and finally the displayed package name.
-        # This fixes the old bug where the package name (e.g. "1 Hour") was sent
-        # even when the API price tier was stored under a different duration.
         api_duration_saved = (prod[12] or "").strip()
         duration_candidates = []
         for candidate in (api_duration_saved, prod[4], prod[0]):
@@ -1365,14 +1361,11 @@ async def process_buy(call: CallbackQuery):
                 api_duration_used = api_duration
                 break
 
-                # A "price not found" response means this duration did not match the
-    # configured API price tier. Try the next safe candidate. For other
-    # errors (auth/server/network), stop immediately to avoid duplicate buys.
-    error_blob = json.dumps(api_response, ensure_ascii=False).lower()
-    if "price not found" not in error_blob and "price_not_found" not in error_blob:
-        pass
+            error_blob = json.dumps(api_response, ensure_ascii=False).lower()
+            if "price not found" not in error_blob and "price_not_found" not in error_blob:
+                pass
 
-            if not api_response or api_response.get("status") != "success":
+        if not api_response or api_response.get("status") != "success":
             db_query("UPDATE users SET balance=balance+? WHERE user_id=?", (final_price, call.from_user.id))
             error_msg = api_response.get("msg", "Unknown API error") if isinstance(api_response, dict) else "Unknown API error"
             safe_err_msg = html.escape(str(error_msg))
@@ -1395,7 +1388,7 @@ async def process_buy(call: CallbackQuery):
         
         if not delivered_key or str(delivered_key).strip() in ("", "None", "KEY_NOT_FOUND"):
             db_query("UPDATE users SET balance=balance+? WHERE user_id=?", (final_price, call.from_user.id))
-            return await call.message.edit_text("❌ API returned no key.\n💰 Your balance has been refunded.")
+            return await call.message.edit_text("❌ API returned no key.\n💰 Your balance has been refunded.", reply_markup=back_kb("menu_shop"))
         
         delivered_key = str(delivered_key)
 
