@@ -1382,7 +1382,7 @@ async def process_buy(call: CallbackQuery):
 
             return
 
-        delivered_key = api_response.get("key")
+                delivered_key = api_response.get("key")
         if isinstance(delivered_key, list):
             delivered_key = "\n".join(str(x) for x in delivered_key)
         
@@ -1390,10 +1390,9 @@ async def process_buy(call: CallbackQuery):
             db_query("UPDATE users SET balance=balance+? WHERE user_id=?", (final_price, call.from_user.id))
             return await call.message.edit_text("❌ API returned no key.\n💰 Your balance has been refunded.", reply_markup=back_kb("menu_shop"))
         
-       delivered_key = str(delivered_key)
+        delivered_key = str(delivered_key)
 
-   else:
-
+    else:
 
 
 
