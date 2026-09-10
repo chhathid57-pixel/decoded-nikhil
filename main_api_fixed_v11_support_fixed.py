@@ -1372,28 +1372,23 @@ async def process_buy(call: CallbackQuery):
     if "price not found" not in error_blob and "price_not_found" not in error_blob:
         pass
 
-    if external_enabled and (not api_response or api_response.get("status") != "success"):
+            if not api_response or api_response.get("status") != "success":
+            db_query("UPDATE users SET balance=balance+? WHERE user_id=?", (final_price, call.from_user.id))
+            error_msg = api_response.get("msg", "Unknown API error") if isinstance(api_response, dict) else "Unknown API error"
+            safe_err_msg = html.escape(str(error_msg))
+            error_text = f"API Error: {safe_err_msg}. Your balance has been refunded."
 
-        db_query("UPDATE users SET balance=balance+? WHERE user_id=?", (final_price, call.from_user.id))
-        error_msg = api_response.get("msg", "Unknown API error")
-        safe_err_msg = html.escape(str(error_msg))
-        error_text = f"API Error: {safe_err_msg}. Your balance has been refunded."
+            try:
+                await call.message.edit_text(
+                    error_text,
+                    reply_markup=back_kb("menu_shop"),
+                    parse_mode="HTML"
+                )
+            except Exception as tg_error:
+                logger.exception("Could not edit message: %s", tg_error)
 
-        try:
-            await call.message.edit_text(
-                error_text,
-                reply_markup=back_kb("menu_shop"),
-                parse_mode="HTML"
-            )
-        except Exception as tg_error:
-            logger.exception("Could not edit message: %s", tg_error)
-            
-        return
+            return
 
-
-
-
-     elif external_enabled:
         delivered_key = api_response.get("key")
         if isinstance(delivered_key, list):
             delivered_key = "\n".join(str(x) for x in delivered_key)
@@ -1405,6 +1400,7 @@ async def process_buy(call: CallbackQuery):
         delivered_key = str(delivered_key)
 
     else:
+
 
         key_data = db_query("SELECT id, key_text FROM product_keys WHERE product_id=? AND is_used=0 LIMIT 1", (prod_id,), fetchone=True)
         if not key_data:
