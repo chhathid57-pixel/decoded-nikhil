@@ -2948,17 +2948,25 @@ async def fetch_external_key(product_id: str, duration: str, android_id: str = "
                     res_text = await response.text()
                     return {"status": "error", "msg": f"Non-JSON response: {res_text[:100]}"}
 
+                logging.info(f"API RESPONSE JSON: {res_json}")
+
                 if response.status in (200, 201):
-                    # 1. Direct check for 'keys' list returned by API
-                    keys_list = res_json.get("keys", [])
-                    if isinstance(keys_list, list) and len(keys_list) > 0:
-                        return {"status": "success", "key": str(keys_list[0]).strip()}
+                    extracted_key = None
+                    if isinstance(res_json, dict):
+                        keys_val = res_json.get("keys")
+                        if keys_val and isinstance(keys_val, list) and len(keys_val) > 0:
+                            extracted_key = str(keys_val[0]).strip()
+                        elif keys_val and isinstance(keys_val, str):
+                            extracted_key = keys_val.strip()
+                        else:
+                            for k in ["key", "license_key", "code", "license"]:
+                                if res_json.get(k):
+                                    extracted_key = str(res_json.get(k)).strip()
+                                    break
                     
-                    # 2. Fallback check for single key
-                    single_key = res_json.get("key") or res_json.get("license_key") or res_json.get("code")
-                    if single_key:
-                        return {"status": "success", "key": str(single_key).strip()}
-                
+                    if extracted_key:
+                        return {"status": "success", "key": extracted_key}
+
                 err_msg = res_json.get("message") or res_json.get("error") or res_json.get("msg") or f"HTTP {response.status}"
                 return {"status": "error", "msg": err_msg}
         except Exception as e:
